@@ -7,15 +7,13 @@ from . import models, schemas, crud, form_analyzer, ai_agent
 from .database import engine, get_db
 from .config import settings
 
-# Create tables
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Formularios AI Assistant API", version="1.0.0")
 
-# CORS middleware required for Chrome Extension to communicate
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all origins for the extension
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,7 +74,6 @@ def generate_form(req: schemas.FormGenerateRequest, db: Session = Depends(get_db
     }
     
     answers = ai_agent.generate_answers(req.fields, student, page_context, settings)
-    
     return schemas.FormGenerateResponse(answers=answers)
 
 @app.post("/api/history")

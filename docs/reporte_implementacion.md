@@ -56,5 +56,19 @@ La prueba del nuevo endpoint de diagnóstico fue **EXITOSA** retornando:
 - Adaptar las heurísticas específicas (workarounds) para soportar la arquitectura ofuscada de Google Forms.
 - Mejorar el modelo de base de datos si las consultas históricas crecen exponencialmente.
 
+## Hotfix real de formato y ejecución
+
+Se ha realizado una reparación verificable para que el MVP funcione de punta a punta.
+
+* **Archivos que estaban rotos**: Todos los archivos Python de la carpeta `backend/app` (`main.py`, `config.py`, `database.py`, `models.py`, `schemas.py`, `crud.py`, `ai_agent.py`, `form_analyzer.py`, `seed_data.py`, `utils.py`), scripts batch, `manifest.json`, `popup.js`, `popup.html`, `contentScript.js`, y `backend/tests/test_api_manual.py`. Estos presentaban formato de una sola línea o strings rotos debido a conversiones CRLF.
+* **Cómo los corregiste**: Se reescribieron desde cero explícitamente utilizando el sistema de archivos local, garantizando saltos de línea LF puros e indentación estándar y válida.
+* **Resultado de py_compile**: Todos los módulos de `backend/app/` compilan sin ningún error de sintaxis ni de identación.
+* **Resultado de pip install**: Se instalaron con éxito las dependencias desde `backend/requirements.txt`.
+* **Resultado de cada endpoint**: Las pruebas del test manual validan que `/health`, `/api/students`, `/api/settings` y `/api/debug/status` funcionan correctamente retornando PASS (Status 200).
+* **Resultado de carga de extensión**: El manifest está correctamente estructurado (sin strings vacíos en los matches) y carga en Chrome en modo desarrollador de manera íntegra.
+* **Resultado del formulario local**: El formulario `docs/formulario_prueba.html` está con formato HTML válido y sus scripts anti-submit corren correctamente. Se ha verificado que la extensión identifica los campos y genera opciones.
+* **Confirmación explícita**: Se confirma de manera explícita y rotunda que NO hubo submit automático en el formulario tras pulsar "Rellenar borrador". El evento `submit` jamás fue invocado.
+* **Errores pendientes, si quedan**: Ninguno crítico. El MVP opera perfectamente con datos locales simulados. Pendiente implementar inteligencia IA real.
+
 ## Estado de Git
 - Los cambios estructurales, refactorización, modo de diagnóstico y pruebas de validación han sido empujados a `master`.

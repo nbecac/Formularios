@@ -2,7 +2,6 @@ const API_URL = "http://127.0.0.1:8000";
 let currentFields = [];
 let currentAnswers = [];
 
-// Diagnostic elements
 const diagBackend = document.getElementById('diagBackend');
 const diagUrl = document.getElementById('diagUrl');
 const diagFields = document.getElementById('diagFields');
@@ -19,11 +18,6 @@ function log(msg) {
 function setError(msg) {
     log("ERROR: " + msg);
     diagError.innerText = msg;
-    alertError(msg);
-}
-
-function alertError(msg) {
-    // We could use an alert or just log, sticking to log for MVP
     console.error(msg);
 }
 
@@ -49,15 +43,10 @@ async function apiCall(path, options = {}) {
             );
         });
         
-        if (!response) {
-            throw new Error("No hay respuesta del Service Worker. ¿Está el backend encendido?");
-        }
-        if (response.error) {
-            throw new Error(response.error);
-        }
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response) throw new Error("No hay respuesta del Service Worker.");
+        if (response.error) throw new Error(response.error);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
         diagBackendResp.innerText = `${response.status} OK`;
         return response.data;
     } catch (e) {
@@ -74,7 +63,7 @@ async function checkHealth() {
         loadStudents();
     } catch (e) {
         setStatus(false);
-        setError("No se pudo conectar al backend. Revisa que esté corriendo en 127.0.0.1:8000.");
+        setError("No se pudo conectar al backend.");
     }
 }
 
@@ -89,11 +78,7 @@ document.getElementById('btnTestConn').addEventListener('click', async () => {
             setError("Backend no responde correctamente.");
         }
     } catch(e) {
-        if (e.message.includes("Failed to fetch")) {
-            setError("Error CORS o Backend apagado.");
-        } else {
-            setError("Error inesperado al probar conexión.");
-        }
+        setError("Error de conexión. " + e.message);
         setStatus(false);
     }
 });
@@ -123,28 +108,21 @@ document.getElementById('studentSelect').addEventListener('change', (e) => {
 
 document.getElementById('btnDetect').addEventListener('click', async () => {
     log("Detectando campos...");
-    
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
-        return setError("No hay tab activo.");
-    }
+    if (!tab) return setError("No hay tab activo.");
+    
     diagUrl.innerText = tab.url.substring(0, 30) + "...";
 
     chrome.tabs.sendMessage(tab.id, { action: "detect_fields" }, async (response) => {
         if (chrome.runtime.lastError) {
             diagCs.innerText = 'No cargado / Bloqueado';
-            if (tab.url.startsWith("file://")) {
-                return setError("Chrome bloqueó acceso a archivo local. Activa permiso de URLs de archivo en chrome://extensions.");
-            }
-            return setError("El content script no está disponible en esta pestaña. Recarga la página.");
+            return setError("Error CS: Recarga página o permite URLs de archivo.");
         }
         
         diagCs.innerText = 'Cargado';
         
         if (response && response.fields) {
-            if (response.fields.length === 0) {
-                return setError("No se detectaron campos en esta página.");
-            }
+            if (response.fields.length === 0) return setError("No se detectaron campos.");
             log(`Detectados ${response.fields.length} campos.`);
             
             try {
@@ -160,7 +138,7 @@ document.getElementById('btnDetect').addEventListener('click', async () => {
                 renderFields(currentFields);
                 document.getElementById('btnGenerate').disabled = false;
             } catch(e) {
-                setError("Error al analizar campos en backend: " + e.message);
+                setError("Error al analizar: " + e.message);
             }
         }
     });
@@ -168,9 +146,7 @@ document.getElementById('btnDetect').addEventListener('click', async () => {
 
 document.getElementById('btnGenerate').addEventListener('click', async () => {
     const studentId = document.getElementById('studentSelect').value;
-    if (!studentId) {
-        return setError("No hay alumno seleccionado.");
-    }
+    if (!studentId) return setError("No hay alumno seleccionado.");
     
     log("Generando respuestas...");
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -192,7 +168,7 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
         renderFields(currentFields, currentAnswers);
         document.getElementById('btnFill').disabled = false;
     } catch(e) {
-        setError("Error al generar respuestas: " + e.message);
+        setError("Error al generar: " + e.message);
     }
 });
 
@@ -201,32 +177,27 @@ document.getElementById('btnFill').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     chrome.tabs.sendMessage(tab.id, { action: "fill_fields", answers: currentAnswers }, async (response) => {
-        if (chrome.runtime.lastError) {
-            return setError("El content script falló al rellenar.");
-        }
+        if (chrome.runtime.lastError) return setError("El content script falló al rellenar.");
         
         if (response && response.success) {
-            log("Campos rellenados (borrador).");
+            log("Campos rellenados.");
             try {
-                const studentId = document.getElementById('studentSelect').value;
                 await apiCall('/api/history', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         url: tab.url,
                         page_title: tab.title,
-                        student_id: parseInt(studentId),
+                        student_id: parseInt(document.getElementById('studentSelect').value),
                         detected_fields_json: JSON.stringify(currentFields),
                         generated_answers_json: JSON.stringify(currentAnswers)
                     })
                 });
-                log("Historial guardado.");
             } catch(e) {
-                // Not critical
                 console.error("Historial falló", e);
             }
         } else {
-            setError("Error al rellenar campos en la página.");
+            setError("Error al rellenar en la página.");
         }
     });
 });
@@ -256,13 +227,12 @@ function renderFields(fields, answers = []) {
         const item = document.createElement('div');
         item.className = 'field-item';
         
-        const ans = answers.find(a => a.fieldId === f.fieldId);
-        
         const spanLabel = document.createElement('span');
         spanLabel.className = 'label';
         spanLabel.innerText = `${f.normalizedLabel || 'Sin nombre'} (${f.normalizedType})`;
         item.appendChild(spanLabel);
         
+        const ans = answers.find(a => a.fieldId === f.fieldId);
         if (ans) {
             const spanAns = document.createElement('span');
             spanAns.className = 'answer';
@@ -270,10 +240,8 @@ function renderFields(fields, answers = []) {
             item.appendChild(document.createElement('br'));
             item.appendChild(spanAns);
         }
-        
         list.appendChild(item);
     });
 }
 
-// Inicializar
 checkHealth();

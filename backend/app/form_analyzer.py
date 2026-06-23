@@ -2,30 +2,34 @@ from typing import List
 from .schemas import FormField, FormAnalyzeResponseField
 
 def normalize_fields(fields: List[FormField]) -> List[FormAnalyzeResponseField]:
-    normalized_fields = []
+    normalized = []
     
     for f in fields:
-        # Determine normalized label
-        labels = [f.label, f.ariaLabel, f.placeholder, f.nearbyText]
-        valid_labels = [l for l in labels if l and l.strip()]
+        label = f.label or f.ariaLabel or f.placeholder or f.nearbyText or f.fieldId
+        label = label.strip()
         
-        normalized_label = valid_labels[0] if valid_labels else "Unknown Field"
-        
-        # Determine type
-        normalized_type = f.type.lower()
-        if normalized_type not in ["text", "textarea", "select", "radio", "checkbox", "email", "number", "date", "contenteditable"]:
-            normalized_type = "unknown"
+        type_norm = f.type.lower()
+        if type_norm in ['text', 'textarea', 'email', 'number', 'date', 'contenteditable']:
+            type_norm = 'text'
+        elif type_norm in ['select-one', 'select']:
+            type_norm = 'select'
+        elif type_norm in ['radio', 'checkbox']:
+            type_norm = 'choice'
             
-        normalized_fields.append(
+        warnings = []
+        if not label or label == f.fieldId:
+            warnings.append("Label no detectado correctamente")
+            
+        normalized.append(
             FormAnalyzeResponseField(
                 fieldId=f.fieldId,
-                normalizedLabel=normalized_label.strip(),
-                normalizedType=normalized_type,
+                normalizedLabel=label,
+                normalizedType=type_norm,
                 options=f.options or [],
                 required=f.required,
-                confidence=0.9 if valid_labels else 0.5,
-                warnings=["No clear label found"] if not valid_labels else []
+                confidence=0.9 if not warnings else 0.5,
+                warnings=warnings
             )
         )
         
-    return normalized_fields
+    return normalized

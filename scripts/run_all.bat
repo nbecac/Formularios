@@ -1,15 +1,19 @@
 @echo off
-echo Iniciando el ecosistema Formularios AI Assistant...
-echo.
-echo =======================================================
-echo INSTRUCCIONES PARA LA EXTENSION DE CHROME:
-echo 1. Abre Chrome y ve a chrome://extensions/
-echo 2. Activa el "Modo Desarrollador" (arriba a la derecha)
-echo 3. Haz clic en "Cargar descomprimida"
-echo 4. Selecciona la carpeta: %~dp0..\extension
-echo 5. Abre docs\formulario_prueba.html para probar.
-echo =======================================================
-echo.
-echo Levantando el backend...
+echo Iniciando Formularios AI Assistant MVP...
 cd /d "%~dp0\.."
-call backend\run_backend.bat
+
+if not exist ".venv" (
+    echo El entorno virtual no existe. Ejecuta scripts\setup.bat primero.
+    pause
+    exit /b
+)
+
+echo Iniciando backend FastAPI localmente...
+call .venv\Scripts\activate.bat
+set PYTHONPATH=%cd%\backend
+cd backend
+start cmd /k "uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
+
+echo Backend iniciado en puerto 8000.
+echo Abre tu navegador en Chrome, carga la extension e ingresa a docs/formulario_prueba.html
+pause

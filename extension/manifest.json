@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Formularios AI Assistant",
-  "version": "1.0",
-  "description": "Asistente local para rellenar formularios autorizados con IA. Nunca envía automáticamente.",
+  "version": "1.0.0",
+  "description": "Asistente local para rellenar formularios autorizados con IA. Nunca envía formularios automáticamente.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -29,7 +29,9 @@
         "https://*/*",
         "file:///*"
       ],
-      "js": ["contentScript.js"],
+      "js": [
+        "contentScript.js"
+      ],
       "run_at": "document_idle"
     }
   ]
