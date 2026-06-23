@@ -1,48 +1,51 @@
-name: CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - master
   pull_request:
-    branches: [ master ]
+    branches:
+      - master
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
 
+    env:
+      PYTHONPATH: backend
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r backend/requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
 
-    - name: Validate Python syntax
-      run: |
-        python -m py_compile backend/app/main.py
-        python -m py_compile backend/app/schemas.py
-        python -m py_compile backend/app/crud.py
-        python -m py_compile backend/app/ai_agent.py
-        python -m py_compile backend/app/form_analyzer.py
-        python -m py_compile backend/app/models.py
-        python -m py_compile backend/app/config.py
-        python -m py_compile backend/app/database.py
-        python -m py_compile backend/app/seed_data.py
-        python -m py_compile backend/app/utils.py
+      - name: Compile Python files
+        run: |
+          python -m py_compile backend/app/main.py
+          python -m py_compile backend/app/config.py
+          python -m py_compile backend/app/database.py
+          python -m py_compile backend/app/models.py
+          python -m py_compile backend/app/schemas.py
+          python -m py_compile backend/app/crud.py
+          python -m py_compile backend/app/ai_agent.py
+          python -m py_compile backend/app/form_analyzer.py
+          python -m py_compile backend/app/seed_data.py
+          python -m py_compile backend/app/utils.py
 
-    - name: Validate extension manifest
-      run: |
-        python -m json.tool extension/manifest.json > /dev/null
+      - name: Validate extension manifest
+        run: |
+          python -m json.tool extension/manifest.json
 
-    - name: Run tests
-      env:
-        PYTHONPATH: backend
-      run: |
-        pytest backend/tests -v
+      - name: Run tests
+        run: |
+          pytest backend/tests -v
