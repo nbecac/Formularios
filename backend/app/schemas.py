@@ -185,6 +185,7 @@ class CanvasQuestionResponse(BaseModel):
     selected_option: Optional[str] = None
     selected_option_text: Optional[str] = None
     selected_options: List[str] = []
+    option_scores: Optional[List[dict]] = []
     confidence: float
     sources: List[KnowledgeSourceSnippet] = []
     explanation: str

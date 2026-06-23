@@ -282,6 +282,8 @@ const canvasAnswer = document.getElementById('canvasAnswer');
 const canvasExplanation = document.getElementById('canvasExplanation');
 const canvasSources = document.getElementById('canvasSources');
 
+const canvasScores = document.getElementById('canvasScores');
+
 let currentCanvasQuestion = null;
 
 function logMsg(msg) {
@@ -300,9 +302,13 @@ if (btnDetectCanvas) {
             }
             if (response && response.question) {
                 currentCanvasQuestion = response;
-                let detMsg = "Pregunta detectada: " + response.question.substring(0, 50) + "...";
+                let detMsg = "Pregunta detectada: " + response.question.substring(0, 80) + "...";
                 if (response.options && response.options.length > 0) {
                     detMsg += "\nAlternativas detectadas: " + response.options.length + " (" + response.selection_mode + ")";
+                    for (var i = 0; i < response.options.length; i++) {
+                        var o = response.options[i];
+                        detMsg += "\n  " + o.label + ") " + o.text;
+                    }
                 }
                 logMsg(detMsg);
                 btnGenerateCanvas.disabled = false;
@@ -327,20 +333,43 @@ if (btnGenerateCanvas) {
             });
             
             canvasResponseArea.style.display = 'block';
-            canvasAnswer.innerText = resData.answer || 'Sin respuesta';
+            canvasAnswer.innerText = resData.answer || "Sin respuesta";
             
-            let explText = "Confianza: " + resData.confidence.toFixed(2);
+            var explText = "Confianza: " + resData.confidence.toFixed(2);
             if (resData.explanation) {
                 explText += "\nMotivo: " + resData.explanation;
             }
-            if (resData.question_type === 'multiple_choice' && currentCanvasQuestion.selection_mode === 'multiple') {
-                explText += "\n\nADVERTENCIA: Pregunta de selección múltiple detectada. Revisa manualmente las opciones sugeridas.";
+            if (resData.question_type === "multiple_choice" && currentCanvasQuestion.selection_mode === "multiple") {
+                explText += "\n\nADVERTENCIA: Pregunta de seleccion multiple detectada. Revisa manualmente.";
             }
             canvasExplanation.innerText = explText;
             
+            // Mostrar scores por alternativa (debug)
+            if (resData.option_scores && resData.option_scores.length > 0) {
+                var scoresText = "--- Scores por alternativa ---\n";
+                for (var j = 0; j < resData.option_scores.length; j++) {
+                    var os = resData.option_scores[j];
+                    var marker = (resData.selected_option && os.label === resData.selected_option) ? " << SUGERIDA" : "";
+                    scoresText += os.label + ": " + os.score + " pts" + marker + "\n";
+                    scoresText += "   " + os.text.substring(0, 60) + "\n";
+                }
+                if (resData.option_scores.length >= 2) {
+                    var best = resData.option_scores[0].score;
+                    var second = resData.option_scores[1].score;
+                    scoresText += "\nMejor: " + resData.option_scores[0].label + " (" + best + ")";
+                    scoresText += "\nSegunda: " + resData.option_scores[1].label + " (" + second + ")";
+                    scoresText += "\nMargen: " + (best - second).toFixed(1);
+                }
+                canvasScores.innerText = scoresText;
+                canvasScores.style.display = "block";
+            } else {
+                canvasScores.style.display = "none";
+            }
+            
+            // Mostrar fuentes deduplicadas
             if (resData.sources && resData.sources.length > 0) {
-                canvasSources.innerHTML = "<strong>Fuentes:</strong><br>" + 
-                    resData.sources.map(s => "- [" + s.section + "] " + s.filename).join("<br>");
+                canvasSources.innerHTML = "<strong>Fuentes (" + resData.sources.length + "):</strong><br>" + 
+                    resData.sources.map(function(s) { return "- [" + s.section + "] " + s.filename; }).join("<br>");
             } else {
                 canvasSources.innerHTML = "<em>Sin fuentes locales encontradas.</em>";
             }

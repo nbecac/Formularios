@@ -163,11 +163,109 @@ def generate_answers(
             
     return answers
 
+
+def _dedupe_sources(sources):
+    """Deduplica fuentes por (section, filename). Agrupa chunks del mismo archivo."""
+    seen = {}
+    for s in sources:
+        key = (s.section, s.filename)
+        if key not in seen:
+            seen[key] = s
+    return list(seen.values())[:5]
+
+
+def _score_option_against_chunks(opt_text, chunks):
+    """
+    Calcula un score de coincidencia entre el texto de una opción y los chunks recuperados.
+    Usa coincidencia de tokens significativos (len > 2), con bonus por frases completas.
+    """
+    score = 0.0
+    opt_lower = opt_text.lower()
+    tokens = [t for t in opt_lower.split() if len(t) > 2]
+    
+    if len(tokens) == 0:
+        return 0.0
+    
+    for c in chunks:
+        c_lower = c.content.lower()
+        
+        # Bonus grande: la frase completa de la opción aparece en el chunk
+        if opt_lower in c_lower:
+            score += 5.0
+        
+        # Bonus por cada token significativo encontrado
+        for t in tokens:
+            if t in c_lower:
+                score += 1.0
+        
+        # Bonus extra: si tokens clave de la opción aparecen juntos (bigrams)
+        for i in range(len(tokens) - 1):
+            bigram = tokens[i] + " " + tokens[i+1]
+            if bigram in c_lower:
+                score += 2.0
+    
+    return score
+
+
+def _calculate_confidence(best_score, second_score, has_sources):
+    """
+    Calcula la confianza basada en scores y presencia de fuentes.
+    """
+    if not has_sources:
+        return 0.15
+    
+    if best_score <= 0:
+        return 0.20
+    
+    margin = best_score - second_score
+    ratio = best_score / max(second_score, 0.1)
+    
+    if margin < 1.5:
+        return 0.35  # Empate
+    elif ratio < 1.25:
+        return 0.45  # Gana por poco
+    elif best_score >= 6 and margin >= 2:
+        return 0.75  # Gana claro
+    elif best_score >= 10:
+        return 0.85  # Evidencia fuerte
+    else:
+        return 0.55  # Gana moderadamente
+
+
+def _should_suggest(best_score, second_score, has_sources):
+    """
+    Decide si se debe sugerir una alternativa.
+    Reglas:
+    - Si no hay fuentes, no sugerir.
+    - Si best_score <= 0, no sugerir.
+    - Si hay empate (diferencia < 1.5), no sugerir.
+    - Si best_score >= 3 y best_score >= second_score * 1.25, sugerir.
+    - Si best_score >= 6 y margen >= 2, sugerir.
+    """
+    if not has_sources:
+        return False, "Sin fuentes relevantes."
+    if best_score <= 0:
+        return False, "Ninguna alternativa coincide con el material."
+    
+    margin = best_score - second_score
+    
+    if margin < 1.5:
+        return False, f"Empate entre alternativas (margen: {margin:.1f}). No se puede decidir."
+    
+    if best_score >= 3 and best_score >= second_score * 1.25:
+        return True, f"Alternativa clara (score: {best_score:.1f}, margen: {margin:.1f})."
+    
+    if best_score >= 6 and margin >= 2:
+        return True, f"Evidencia fuerte (score: {best_score:.1f}, margen: {margin:.1f})."
+    
+    return False, f"Score insuficiente (best: {best_score:.1f}, margin: {margin:.1f})."
+
+
 def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     from . import crud, schemas
     
     query = req.question
-    preferred = ["E1", "E2", "E3", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
+    preferred = ["E1", "E2", "E3", "resumen_clave", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
     
     clean_q = query.lower()
     is_implementation = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "qué hiciste", "que hiciste", "cómo respondiste", "como respondiste", "cómo implementaste", "como implementaste", "entrega", "proyecto"])
@@ -180,88 +278,89 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     elif is_requirement:
         preferred = ["syllabus_project", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
     
-    chunks = crud.search_knowledge(db, query, max_results=6, preferred_sections=preferred)
+    chunks = crud.search_knowledge(db, query, max_results=8, preferred_sections=preferred)
     
-    sources = []
+    # Build sources with deduplication
+    raw_sources = []
     evidence_text = ""
     for c in chunks:
         snippet = c.content[:300] + "..." if len(c.content) > 300 else c.content
-        sources.append(schemas.KnowledgeSourceSnippet(
+        raw_sources.append(schemas.KnowledgeSourceSnippet(
             section=c.section,
             title=c.source.title,
             filename=c.source.filename,
             snippet=snippet
         ))
         evidence_text += f"\n--- [{c.section}] {c.source.title} ---\n{c.content}\n"
+    
+    sources = _dedupe_sources(raw_sources)
+    has_sources = len(chunks) > 0
 
-    # Modo Alternativas
+    # ===== Modo Alternativas =====
     if req.options and len(req.options) > 0 and req.question_type == 'multiple_choice':
-        if not chunks:
+        if not has_sources:
             return schemas.CanvasQuestionResponse(
                 answer="No hay evidencia suficiente en el material cargado para sugerir una alternativa con seguridad.",
                 selected_option=None,
                 selected_option_text=None,
-                confidence=0.1,
+                confidence=0.15,
                 sources=[],
-                explanation="Búsqueda sin resultados relevantes en el material local.",
+                explanation="Busqueda sin resultados relevantes en el material local.",
                 question_type="multiple_choice",
                 mode="multiple_choice_suggestion",
-                needs_review=True
+                needs_review=True,
+                option_scores=[]
             )
         
-        # Scoring manual simple
-        scores = []
+        # Score each option against chunks
+        scored = []
         for opt in req.options:
-            score = 0
-            opt_text_clean = opt.text.lower()
-            if len(opt_text_clean) > 3:
-                for c in chunks:
-                    c_clean = c.content.lower()
-                    if opt_text_clean in c_clean:
-                        score += 3
-                    
-                    tokens = opt_text_clean.split()
-                    for t in tokens:
-                        if len(t) > 3 and t in c_clean:
-                            score += 0.5
-            scores.append((score, opt))
-            
-        scores.sort(key=lambda x: x[0], reverse=True)
-        best_score, best_opt = scores[0]
-        second_score = scores[1][0] if len(scores) > 1 else 0
+            s = _score_option_against_chunks(opt.text, chunks)
+            scored.append({"label": opt.label, "text": opt.text, "score": round(s, 1)})
         
-        if best_score <= 0 or (best_score - second_score) < 1.0:
+        # Sort by score descending
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        
+        best = scored[0]
+        second = scored[1] if len(scored) > 1 else {"score": 0}
+        
+        should, reason = _should_suggest(best["score"], second["score"], has_sources)
+        confidence = _calculate_confidence(best["score"], second["score"], has_sources)
+        
+        if should:
             return schemas.CanvasQuestionResponse(
-                answer="No hay evidencia suficiente en el material cargado para sugerir una alternativa con seguridad.",
+                answer="Alternativa sugerida: " + best["label"],
+                selected_option=best["label"],
+                selected_option_text=best["text"],
+                confidence=confidence,
+                sources=sources,
+                explanation=reason,
+                question_type="multiple_choice",
+                mode="multiple_choice_suggestion",
+                needs_review=True,
+                option_scores=scored
+            )
+        else:
+            return schemas.CanvasQuestionResponse(
+                answer="No hay evidencia suficiente para sugerir una alternativa con seguridad.",
                 selected_option=None,
                 selected_option_text=None,
-                confidence=0.2,
+                confidence=confidence,
                 sources=sources,
-                explanation=f"Empate o score muy bajo (Mejor score: {best_score}). No se puede decidir con seguridad.",
+                explanation=reason,
                 question_type="multiple_choice",
                 mode="multiple_choice_suggestion",
-                needs_review=True
+                needs_review=True,
+                option_scores=scored
             )
-            
-        return schemas.CanvasQuestionResponse(
-            answer=f"Alternativa sugerida: {best_opt.label}",
-            selected_option=best_opt.label,
-            selected_option_text=best_opt.text,
-            confidence=min(0.5 + (best_score * 0.1), 0.9),
-            sources=sources,
-            explanation=f"La alternativa '{best_opt.label}' tiene mayor coincidencia con el material recuperado (Score: {best_score}).",
-            question_type="multiple_choice",
-            mode="multiple_choice_suggestion",
-            needs_review=True
-        )
 
-    # Modo Texto (Mantenido por compatibilidad)
+    # ===== Modo Texto (compatibilidad) =====
     if not chunks:
         return schemas.CanvasQuestionResponse(
-            answer="No se encontró evidencia suficiente en el material cargado para responder a esta pregunta con certeza.",
+            answer="No se encontro evidencia suficiente en el material cargado para responder a esta pregunta con certeza.",
             confidence=0.1,
             sources=[],
-            explanation="Búsqueda sin resultados relevantes en el material local.",
+            explanation="Busqueda sin resultados relevantes en el material local.",
             question_type="text",
             mode="knowledge_only",
             needs_review=True
@@ -277,18 +376,18 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
         client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
         
         system_prompt = f"""
-Eres un asistente de evaluación enfocado estrictamente en un proyecto de Base de Datos.
+Eres un asistente de evaluacion enfocado estrictamente en un proyecto de Base de Datos.
 REGLAS ESTRICTAS:
-- Responde a la pregunta basándote ÚNICA y EXCLUSIVAMENTE en el material proporcionado abajo.
-- Si no hay suficiente evidencia, indícalo claramente.
-- Nunca sugieras que enviarás la evaluación. El usuario debe revisar.
+- Responde a la pregunta basandote UNICA y EXCLUSIVAMENTE en el material proporcionado abajo.
+- Si no hay suficiente evidencia, indicalo claramente.
+- Nunca sugieras que enviaras la evaluacion. El usuario debe revisar.
 
-INTENCIÓN DE LA PREGUNTA:
-- Si la pregunta pide "cómo se hizo", "qué se respondió", usa las fuentes de E1, E2, E3. Escribe usando frases como "En la entrega se implementó..."
-- Si la pregunta pide "qué cambiarías" o "mejorarías", indica primero qué se hizo realmente y luego sugiere la mejora separando claramente "Lo hecho" vs "Mejora sugerida".
-- Si es teórica, responde basándote en las clases/ayudantías provistas en la evidencia.
+INTENCION DE LA PREGUNTA:
+- Si la pregunta pide "como se hizo", "que se respondio", usa las fuentes de E1, E2, E3. Escribe usando frases como "En la entrega se implemento..."
+- Si la pregunta pide "que cambiarias" o "mejorarias", indica primero que se hizo realmente y luego sugiere la mejora separando claramente "Lo hecho" vs "Mejora sugerida".
+- Si es teorica, responde basandote en las clases/ayudantias provistas en la evidencia.
 
-Evidencia extraída del material del curso:
+Evidencia extraida del material del curso:
 {evidence_text}
 """
         user_prompt = f"Pregunta: {req.question}\nOpciones (si aplica): {req.options}\nTipo: {req.question_type}"
@@ -307,7 +406,7 @@ Evidencia extraída del material del curso:
                 answer=ans_text,
                 confidence=0.85,
                 sources=sources,
-                explanation="Respuesta generada vía LLM basada exclusivamente en el material recuperado.",
+                explanation="Respuesta generada via LLM basada exclusivamente en el material recuperado.",
                 mode="knowledge_only",
                 needs_review=True
             )
@@ -317,17 +416,17 @@ Evidencia extraída del material del curso:
     # MOCK FALLBACK
     ans_text = "Basado en el material encontrado:\n"
     if is_implementation:
-        ans_text = "En la entrega se implementó lo siguiente, según la evidencia:\n"
+        ans_text = "En la entrega se implemento lo siguiente, segun la evidencia:\n"
     elif is_improvement:
-        ans_text = "Lo hecho en la entrega fue:\n[Insertar hecho]\n\nMejora sugerida:\n[Insertar mejora teórica]\n\nEvidencia:\n"
+        ans_text = "Lo hecho en la entrega fue:\n[Insertar hecho]\n\nMejora sugerida:\n[Insertar mejora teorica]\n\nEvidencia:\n"
         
-    ans_text += f"{sources[0].snippet}\n\n*Nota: Extracción directa (modo mock).*\n"
+    ans_text += f"{sources[0].snippet}\n\n*Nota: Extraccion directa (modo mock).*\n"
     
     return schemas.CanvasQuestionResponse(
         answer=ans_text,
         confidence=0.5,
         sources=sources,
-        explanation="Extracción directa del mejor chunk debido a modo mock.",
+        explanation="Extraccion directa del mejor chunk debido a modo mock.",
         question_type="text",
         mode="knowledge_only_mock",
         needs_review=True

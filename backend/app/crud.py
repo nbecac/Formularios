@@ -265,6 +265,13 @@ def _get_section_and_priority(rel_path_str):
             source_kind = "course_content"
             priority = 40
             
+    # Resumen verificado por el usuario
+    filename = Path(rel_path_str).name
+    if filename == "resumen_clave_proyecto.md":
+        section = "resumen_clave"
+        source_kind = "user_verified_summary"
+        priority = 120
+
     return section, source_kind, priority
 
 def _chunk_text(content, max_len=1500, overlap=200):
@@ -335,6 +342,8 @@ def import_knowledge_folder(db: Session, base_folder_path: str) -> dict:
                 shutil.copytree(item, Path(temp_dir) / item.name)
             elif item.suffix.lower() == '.zip':
                 _extract_zip_safely(item, Path(temp_dir) / item.stem)
+            elif item.is_file():
+                shutil.copy2(item, Path(temp_dir) / item.name)
 
         allowed_text_exts = {".txt", ".md", ".sql", ".php", ".css", ".json", ".ipynb"}
         allowed_img_exts = {".png", ".jpg", ".jpeg", ".svg"}
