@@ -2,12 +2,17 @@
 // ATENCIÓN: Este script NUNCA debe ejecutar form.submit() ni hacer click en botones de envío.
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "detect_fields") {
-        const fields = detectFields();
-        sendResponse({ fields: fields });
-    } else if (request.action === "fill_fields") {
-        fillFields(request.answers);
-        sendResponse({ success: true });
+    try {
+        if (request.action === "detect_fields") {
+            const fields = detectFields();
+            sendResponse({ fields: fields });
+        } else if (request.action === "fill_fields") {
+            fillFields(request.answers);
+            sendResponse({ success: true });
+        }
+    } catch (e) {
+        console.error("Content Script Error:", e);
+        sendResponse({ error: "Error en content script: " + e.message });
     }
     return true;
 });

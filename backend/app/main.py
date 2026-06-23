@@ -35,6 +35,29 @@ def get_settings(db: Session = Depends(get_db)):
     db_settings = crud.get_settings(db)
     return {s.key: s.value for s in db_settings}
 
+@app.get("/api/debug/status")
+def debug_status(db: Session = Depends(get_db)):
+    try:
+        students_count = db.query(models.Student).count()
+        settings_count = db.query(models.Setting).count()
+        ai_provider = settings.AI_PROVIDER
+        
+        return {
+            "status": "ok",
+            "database": "connected",
+            "students_count": students_count,
+            "settings_count": settings_count,
+            "ai_provider": ai_provider,
+            "service": "formularios-backend"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "database": "disconnected",
+            "error": str(e),
+            "service": "formularios-backend"
+        }
+
 @app.post("/api/forms/analyze", response_model=schemas.FormAnalyzeResponse)
 def analyze_form(req: schemas.FormAnalyzeRequest):
     normalized = form_analyzer.normalize_fields(req.fields)

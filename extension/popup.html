@@ -28,6 +28,7 @@
             <button id="btnGenerate" class="btn secondary" disabled>✨ Generar respuestas</button>
             <button id="btnFill" class="btn success" disabled>📝 Rellenar borrador</button>
             <button id="btnClear" class="btn text">Limpiar</button>
+            <button id="btnTestConn" class="btn text">Probar conexión</button>
         </div>
 
         <div class="section">
@@ -35,6 +36,19 @@
             <div id="fieldList" class="field-list">
                 <p class="empty-state">No hay campos detectados. Usa el botón de arriba.</p>
             </div>
+        </div>
+
+        <div class="section diag-section">
+            <h3>Diagnóstico</h3>
+            <ul class="diag-list">
+                <li><strong>Backend:</strong> <span id="diagBackend">Desconectado</span></li>
+                <li><strong>URL:</strong> <span id="diagUrl">-</span></li>
+                <li><strong>Campos:</strong> <span id="diagFields">0</span></li>
+                <li><strong>Alumno:</strong> <span id="diagStudent">-</span></li>
+                <li><strong>Última resp.:</strong> <span id="diagBackendResp">-</span></li>
+                <li><strong>Último error:</strong> <span id="diagError">-</span></li>
+                <li><strong>Content script:</strong> <span id="diagCs">Cargando...</span></li>
+            </ul>
         </div>
 
         <div class="logs" id="logsArea">

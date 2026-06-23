@@ -3,47 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Formulario de Prueba - Formularios AI</title>
+    <title>Formulario de Prueba Completo - Formularios AI</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f8fafc; }
+        body { font-family: system-ui, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; background: #f8fafc; }
         .card { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
         .form-group { margin-bottom: 16px; }
         label { display: block; margin-bottom: 6px; font-weight: 500; }
-        input[type="text"], input[type="email"], select, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .radio-group { display: flex; gap: 16px; }
+        input[type="text"], input[type="email"], input[type="number"], input[type="date"], select, textarea { 
+            width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; 
+        }
+        .contenteditable-box {
+            width: 100%; min-height: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: #fff;
+        }
+        .radio-group, .checkbox-group { display: flex; gap: 16px; flex-wrap: wrap; }
         button[type="submit"] { background: #2563eb; color: white; padding: 10px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
         button[type="submit"]:hover { background: #1d4ed8; }
-        .warning { color: #dc2626; font-size: 0.85rem; margin-top: 10px; }
+        .notice { background: #FEF9C3; color: #CA8A04; padding: 12px; border-radius: 6px; font-weight: bold; margin-bottom: 20px; border: 1px solid #FEF08A; }
+        .submit-warning { display: none; background: #DC2626; color: white; padding: 16px; border-radius: 8px; font-size: 1.2rem; font-weight: bold; text-align: center; margin-top: 20px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>Reporte del Alumno</h2>
-        <p>Este es un formulario de prueba local para validar la extensión.</p>
+        <h2>Reporte Completo del Alumno</h2>
+        <div class="notice">Este formulario es solo para pruebas locales del asistente.</div>
         
-        <form id="testForm" onsubmit="event.preventDefault(); alert('Formulario enviado (simulación)');">
+        <form id="testForm">
             <div class="form-group">
                 <label for="nombre">Nombre del alumno</label>
                 <input type="text" id="nombre" name="nombre" required>
             </div>
             
             <div class="form-group">
-                <label for="curso">Curso</label>
-                <input type="text" id="curso" name="curso" placeholder="Ej. 1ro Medio A">
+                <label for="correo">Correo apoderado</label>
+                <input type="email" id="correo" name="correo" placeholder="ejemplo@correo.com">
+            </div>
+
+            <div class="form-group">
+                <label for="edad">Edad</label>
+                <input type="number" id="edad" name="edad" min="5" max="20">
+            </div>
+
+            <div class="form-group">
+                <label for="fecha">Fecha de Evaluación</label>
+                <input type="date" id="fecha" name="fecha">
             </div>
             
             <div class="form-group">
-                <label for="desempeno">Desempeño académico</label>
+                <label for="desempeno">Desempeño académico general</label>
                 <textarea id="desempeno" name="desempeno" rows="3"></textarea>
             </div>
             
-            <div class="form-group">
-                <label>Requiere apoyo adicional</label>
+            <fieldset class="form-group">
+                <legend style="font-weight: 500; margin-bottom: 6px;">Requiere apoyo adicional</legend>
                 <div class="radio-group">
                     <label><input type="radio" name="apoyo" value="Sí"> Sí</label>
                     <label><input type="radio" name="apoyo" value="No"> No</label>
                 </div>
-            </div>
+            </fieldset>
+
+            <fieldset class="form-group">
+                <legend style="font-weight: 500; margin-bottom: 6px;">Áreas a mejorar</legend>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" name="areas" value="Matemáticas"> Matemáticas</label>
+                    <label><input type="checkbox" name="areas" value="Lenguaje"> Lenguaje</label>
+                    <label><input type="checkbox" name="areas" value="Comportamiento"> Comportamiento</label>
+                </div>
+            </fieldset>
 
             <div class="form-group">
                 <label for="participacion">Nivel de participación</label>
@@ -56,13 +81,25 @@
             </div>
             
             <div class="form-group">
-                <label for="comentarios">Comentarios finales</label>
-                <textarea id="comentarios" name="comentarios" rows="3"></textarea>
+                <label>Comentarios extra (Rich Text / Content Editable)</label>
+                <div id="comentarios" class="contenteditable-box" contenteditable="true" data-ai-id="comentarios_richtext"></div>
             </div>
             
-            <button type="submit">Enviar Reporte</button>
-            <p class="warning">Recordatorio: La extensión AI nunca hará click en este botón.</p>
+            <button type="submit" id="btnSubmitForm">Enviar Reporte</button>
         </form>
+
+        <div id="submitAlert" class="submit-warning">
+            ¡ALERTA! EL FORMULARIO FUE ENVIADO.<br>
+            La extensión no debería haber hecho click en Enviar.
+        </div>
     </div>
+
+    <script>
+        document.getElementById('testForm').addEventListener('submit', function(e) {
+            e.preventDefault(); // Evitar recarga
+            document.getElementById('submitAlert').style.display = 'block';
+            console.error("SUBMIT EVENT FIRED!");
+        });
+    </script>
 </body>
 </html>
