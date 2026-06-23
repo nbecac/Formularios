@@ -226,14 +226,12 @@ def _extract_zip_safely(zip_path, extract_to):
             zip_ref.extract(member, extract_to)
 
 def _get_section_and_priority(rel_path_str):
-    # Default
     section = "syllabus"
     source_kind = "course_content"
-    priority = 30
+    priority = 40
     
     parts = Path(rel_path_str).parts
     
-    # Check if it is E1, E2, E3
     if parts[0] in ["E1", "E2", "E3"]:
         section = parts[0]
         source_kind = "student_submission"
@@ -242,42 +240,79 @@ def _get_section_and_priority(rel_path_str):
         if "Proyecto" in parts:
             if "E1" in parts:
                 section = "syllabus_project_E1"
-                source_kind = "official_project_statement"
                 priority = 80
             elif "E2" in parts:
                 section = "syllabus_project_E2"
-                source_kind = "official_project_statement"
                 priority = 80
             elif "E3" in parts:
                 section = "syllabus_project_E3"
-                source_kind = "official_project_statement"
                 priority = 80
             else:
                 section = "syllabus_project"
-                source_kind = "official_project_statement"
                 priority = 75
         elif "Clases" in parts:
             section = "syllabus_clases"
-            source_kind = "course_content"
             priority = 40
         elif "Ayudantías" in parts or "Ayudantias" in parts:
             section = "syllabus_ayudantias"
-            source_kind = "course_content"
             priority = 40
             
-    # Resumen verificado por el usuario
     filename = Path(rel_path_str).name
-    if filename == "resumen_clave_proyecto.md":
+    if filename == "memoria_maestra_proyecto.md":
+        section = "memoria_maestra"
+        source_kind = "user_verified_master_memory"
+        priority = 1000
+    elif filename == "resumen_clave_proyecto.md":
         section = "resumen_clave"
         source_kind = "user_verified_summary"
-        priority = 120
+        priority = 700
+    elif filename.startswith("ficha_"):
+        section = "ficha_" + parts[0] if parts[0] in ["E1", "E2", "E3"] else "ficha_general"
+        source_kind = "user_verified_summary"
+        priority = 800
 
     return section, source_kind, priority
 
-def _chunk_text(content, max_len=1500, overlap=200):
-    # Basic Markdown/Text chunking
+def _chunk_text(content, max_len=1500, overlap=200, is_master_memory=False):
     if not content: return []
-    # If Markdown, try split by headers
+    
+    if is_master_memory:
+        # Custom chunking preserving headers
+        # Split by any heading (e.g. \n# )
+        parts = re.split(r'\n(?=#+ )', "\n" + content)
+        chunks = []
+        for part in parts:
+            part = part.strip()
+            if not part: continue
+            
+            # Extract the header (the first line)
+            lines = part.split("\n", 1)
+            header = lines[0] if len(lines) > 0 else ""
+            
+            if len(part) <= max_len:
+                chunks.append(part)
+            else:
+                # If a section is too big, split it but prepend the header
+                # Ensure we don't break QA pairs (they usually start with ### QA-)
+                # We'll split by sub-blocks like ### or blank lines
+                sub_parts = re.split(r'\n\n', part)
+                current = ""
+                for sp in sub_parts:
+                    # If this subpart alone is too big, we just have to chunk it roughly
+                    if len(current) + len(sp) > max_len and current:
+                        # Append current and start new
+                        chunks.append(current.strip())
+                        current = header + "\n\n" + sp
+                    else:
+                        if not current:
+                            current = sp
+                        else:
+                            current += "\n\n" + sp
+                if current:
+                    chunks.append(current.strip())
+        return chunks
+        
+    # Default behavior for other files
     if "# " in content or "## " in content:
         parts = re.split(r'(?=\n#)', content)
     else:
@@ -394,7 +429,8 @@ def import_knowledge_folder(db: Session, base_folder_path: str) -> dict:
                         if ext in ['.sql', '.php', '.css']:
                             chunks = _chunk_code(content, ext.strip('.'))
                         else:
-                            chunks = _chunk_text(content)
+                            is_mm = (file_path.name == "memoria_maestra_proyecto.md")
+                            chunks = _chunk_text(content, is_master_memory=is_mm)
                             
                         for i, c in enumerate(chunks):
                             db.add(models.KnowledgeChunk(source_id=source.id, section=section, content=c, chunk_index=i))
@@ -454,21 +490,23 @@ def import_knowledge_folder(db: Session, base_folder_path: str) -> dict:
     }
 
 def search_knowledge(db: Session, query: str, max_results: int = 5, preferred_sections: list = None):
-    # Stopwords basicas
     stopwords = {"el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "a", "ante", "con", "en", "para", "por", "y", "o", "que", "se", "es", "son", "como", "sobre"}
-    
     clean_q = query.lower().replace('?', '').replace('¿', '')
     query_words = [w for w in clean_q.split() if w not in stopwords and len(w) > 2]
-    
     if not query_words:
         return []
 
-    # Score calculation logic en python localmente ya que SQlite no tiene buen BM25 sin extensiones
     chunks = db.query(models.KnowledgeChunk).join(models.KnowledgeSource).all()
     
-    scored = []
+    layer_mm = []
+    layer_fichas = []
+    layer_ex = []
+    layer_syll = []
     
-    is_implementation_question = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "implementó", "hiciste", "cambiarías", "entrega", "proyecto", "respondiste"])
+    # Determine dynamic preferred sections based on query
+    q_mentions_e1 = "e1" in clean_q or "entrega 1" in clean_q
+    q_mentions_e2 = "e2" in clean_q or "entrega 2" in clean_q or "pago" in clean_q or "membres" in clean_q or "cuota" in clean_q or "csv" in clean_q
+    q_mentions_e3 = "e3" in clean_q or "entrega 3" in clean_q or "php" in clean_q or "login" in clean_q
     
     for c in chunks:
         score = 0
@@ -482,16 +520,74 @@ def search_knowledge(db: Session, query: str, max_results: int = 5, preferred_se
                 score += 5.0
                 
         if score > 0:
-            # Boosts
-            score += c.source.priority * 0.1
-            
-            if is_implementation_question and c.source.source_kind == "student_submission":
-                score += 50.0
-                
+            section = c.section
+            # Contextual boosting for Master Memory based on question topics
+            if section == "memoria_maestra":
+                if q_mentions_e2 and ("e2" in content_lower or "pago" in content_lower or "csv" in content_lower):
+                    score += 50.0
+                if q_mentions_e1 and ("e1" in content_lower or "modelo" in content_lower or "relacion" in content_lower):
+                    score += 50.0
+                if q_mentions_e3 and ("e3" in content_lower or "php" in content_lower or "vista" in content_lower):
+                    score += 50.0
+                    
             if preferred_sections and c.source.folder in preferred_sections:
                 score += 20.0
                 
-            scored.append((score, c))
-            
-    scored.sort(key=lambda x: x[0], reverse=True)
-    return [c for s, c in scored[:max_results]]
+            kind = c.source.source_kind
+            if section == "memoria_maestra":
+                layer_mm.append((score, c))
+            elif "ficha" in section or "resumen" in section:
+                layer_fichas.append((score, c))
+            elif kind == "student_submission":
+                # contextual boosting for E1/E2/E3
+                if q_mentions_e2 and c.source.folder == "E2":
+                    score += 30.0
+                elif q_mentions_e1 and c.source.folder == "E1":
+                    score += 30.0
+                elif q_mentions_e3 and c.source.folder == "E3":
+                    score += 30.0
+                layer_ex.append((score, c))
+            else:
+                layer_syll.append((score, c))
+
+    layer_mm.sort(key=lambda x: x[0], reverse=True)
+    layer_fichas.sort(key=lambda x: x[0], reverse=True)
+    layer_ex.sort(key=lambda x: x[0], reverse=True)
+    layer_syll.sort(key=lambda x: x[0], reverse=True)
+    
+    # Hierarchical resolution
+    final_chunks = []
+    
+    if len(layer_mm) >= 2:
+        final_chunks.extend(layer_mm)
+        final_chunks.extend(layer_fichas)
+        final_chunks.extend(layer_ex)
+    elif len(layer_mm) == 1:
+        final_chunks.extend(layer_mm)
+        final_chunks.extend(layer_fichas)
+        final_chunks.extend(layer_ex)
+    else:
+        final_chunks.extend(layer_fichas)
+        final_chunks.extend(layer_ex)
+        final_chunks.extend(layer_syll)
+        
+    # Deduplicate and limit
+    seen = set()
+    result = []
+    for s, c in final_chunks:
+        if c.id not in seen:
+            seen.add(c.id)
+            result.append(c)
+            if len(result) >= max_results:
+                break
+                
+    # If still not enough, add syllabus
+    if len(result) < max_results:
+        for s, c in layer_syll:
+            if c.id not in seen:
+                seen.add(c.id)
+                result.append(c)
+                if len(result) >= max_results:
+                    break
+                    
+    return result

@@ -66,6 +66,24 @@ def setup_teardown():
             "- Se normalizo la tabla beneficios\n"
             "- Se agregaron stored procedures\n"
         )
+    # Memoria maestra (prioridad 1000)
+    with open("test_material_tmp/memoria_maestra_proyecto.md", "w", encoding="utf-8") as f:
+        f.write(
+            "# Memoria Maestra del Proyecto DCColo\n\n"
+            "## 0. Índice rápido para Gemini\n"
+            "- Resumen E1\n- Resumen E2\n- Resumen E3\n\n"
+            "## Banco rápido de alternativas probables\n"
+            "### QA-001\n"
+            "Pregunta tipo: Como se resolvio el pago?\n"
+            "Alternativa correcta: CSV\n"
+            "Justificación: Evidencia E2 dice CSV.\n\n"
+            "### QA-002\n"
+            "Pregunta tipo: En el Modelo Entidad-Relacion de la Entrega 1, como se modela la relacion entre Socio y Beneficio?\n"
+            "Alternativa correcta: Relacion N a M, donde un socio puede acceder a muchos beneficios y un beneficio aplica a muchos socios.\n"
+            "Justificación: En E1 se modeló así.\n\n"
+            "## Cosas que NO se deben afirmar\n"
+            "- No afirmar Transbank.\n"
+        )
         
     yield
     
@@ -305,3 +323,44 @@ def test_canvas_gemini_mocked_success(monkeypatch):
     assert data["confidence"] == 0.88
     assert "Mocked Gemini JSON" in data["explanation"]
 
+def test_memoria_maestra_priority():
+    """La memoria maestra debe importarse con prioridad 1000 y salir primera."""
+    response = client.post("/api/knowledge/import-folder?base_folder=test_material_tmp")
+    assert response.status_code == 200
+    
+    search_resp = client.post("/api/knowledge/search", json={"query": "pago", "max_results": 5})
+    assert search_resp.status_code == 200
+    data = search_resp.json()
+    assert len(data) >= 1
+    # Deberia traer la memoria maestra por el boost
+    assert data[0]["section"] == "memoria_maestra"
+
+def test_gemini_inference_marked(monkeypatch):
+    """Test that a reasonable inference uses confidence 0.35-0.55."""
+    client.post("/api/knowledge/import-folder?base_folder=test_material_tmp")
+    from app.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "fake_key")
+    
+    import json
+    from unittest.mock import patch, MagicMock
+    
+    mock_response = MagicMock()
+    # Inferencia razonable rule
+    mock_response.text = json.dumps({"selected_option": "B", "confidence": 0.45, "explanation": "inferencia por descarte"})
+    
+    with patch("google.genai.Client") as MockClient:
+        instance = MockClient.return_value
+        instance.models.generate_content.return_value = mock_response
+        
+        response = client.post("/api/ai/canvas", json={
+            "question": "Pregunta de descarte E2",
+            "options": [{"label": "A", "text": "Transbank"}, {"label": "B", "text": "CSV"}],
+            "question_type": "multiple_choice",
+            "selection_mode": "single"
+        })
+    
+    data = response.json()
+    assert data["confidence"] == 0.45
+    assert "inferencia" in data["explanation"].lower()
+    assert data["selected_option"] == "B"

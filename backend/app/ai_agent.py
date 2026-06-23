@@ -265,7 +265,6 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     from . import crud, schemas
     
     query = req.question
-    preferred = ["E1", "E2", "E3", "resumen_clave", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
     
     clean_q = query.lower()
     is_implementation = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "qué hiciste", "que hiciste", "cómo respondiste", "como respondiste", "cómo implementaste", "como implementaste", "entrega", "proyecto"])
@@ -273,17 +272,21 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     is_theory = any(w in clean_q for w in ["teoría", "teoria", "concepto", "definición", "que es un", "qué es un"])
     is_requirement = any(w in clean_q for w in ["enunciado", "requisitos", "se pedía", "se pedia"])
     
+    preferred = None
     if is_theory:
         preferred = ["syllabus_clases", "syllabus_ayudantias"]
     elif is_requirement:
         preferred = ["syllabus_project", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
     
+    # Request max 8 chunks
     chunks = crud.search_knowledge(db, query, max_results=8, preferred_sections=preferred)
     
-    # Build sources with deduplication
+    # Build sources with deduplication and limit to 10000 chars roughly
     raw_sources = []
     evidence_text = ""
     for c in chunks:
+        if len(evidence_text) > 10000:
+            break
         snippet = c.content[:300] + "..." if len(c.content) > 300 else c.content
         raw_sources.append(schemas.KnowledgeSourceSnippet(
             section=c.section,
@@ -323,8 +326,13 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
                 client = genai.Client(api_key=settings.GEMINI_API_KEY)
                 options_text = json.dumps([{"label": o.label, "text": o.text} for o in req.options], ensure_ascii=False)
                 
-                system_prompt = f"""Eres un asistente experto evaluando una pregunta de selección múltiple.
-Evalúa las opciones contra la evidencia proporcionada y selecciona la correcta.
+                system_prompt = f"""Eres un asistente experto evaluando una pregunta de selección múltiple sobre un proyecto de Base de Datos.
+REGLA 1: Prioriza la información que provenga de la sección "memoria_maestra".
+REGLA 2: No inventes hechos específicos.
+REGLA 3: Tu respuesta debe categorizarse en uno de los siguientes tres niveles y usar la 'confidence' indicada:
+1. Evidencia directa: Tienes la prueba exacta en la evidencia. Elige la alternativa. confidence = 0.70 a 0.90
+2. Inferencia razonable: No hay prueba explícita, pero por descarte o lógica fundamentada en la evidencia, una alternativa es claramente la mejor. Elige la alternativa. explanation DEBE decir "inferencia por descarte" o "inferencia razonable". confidence = 0.35 a 0.55
+3. Sin evidencia suficiente: No hay cómo decidir o es una pregunta trampa (e.g. herramientas no usadas). selected_option = null. confidence = 0.0 a 0.25. explanation debe indicar qué falta o por qué es trampa.
 
 Evidencia extraida:
 {evidence_text}
@@ -333,9 +341,9 @@ Opciones:
 {options_text}
 
 Debes responder SOLAMENTE con un objeto JSON (sin comillas invertidas ni markdown extra, que cumpla response_mime_type="application/json") que contenga:
-- "selected_option": el label de la opción seleccionada o null si es muy dudoso.
-- "confidence": número entre 0.0 y 1.0 indicando tu seguridad.
-- "explanation": por qué seleccionaste la opción basada en la evidencia."""
+- "selected_option": el label de la opción seleccionada o null.
+- "confidence": número entre 0.0 y 1.0.
+- "explanation": por qué seleccionaste la opción, siguiendo la REGLA 3."""
                 user_prompt = f"Pregunta: {req.question}"
                 
                 response = client.models.generate_content(
@@ -368,7 +376,7 @@ Debes responder SOLAMENTE con un objeto JSON (sin comillas invertidas ni markdow
                     needs_review=True,
                     option_scores=[]
                 )
-            except Exception:
+            except Exception as e:
                 pass
         # --- Fin Gemini Integration ---
 
