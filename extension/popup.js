@@ -38,19 +38,25 @@ async function apiCall(path, options = {}) {
     try {
         const response = await new Promise((resolve) => {
             chrome.runtime.sendMessage(
-                { action: "fetch_api", url: ${API_URL}, options },
-                (res) => resolve(res)
+                { action: "fetch_api", url: API_URL + path, options: options },
+                (res) => {
+                    if (chrome.runtime.lastError) {
+                        resolve({ ok: false, error: chrome.runtime.lastError.message });
+                    } else {
+                        resolve(res);
+                    }
+                }
             );
         });
         
         if (!response) throw new Error("No hay respuesta del Service Worker.");
         if (response.error) throw new Error(response.error);
-        if (!response.ok) throw new Error(HTTP );
+        if (!response.ok) throw new Error("HTTP " + response.status);
         
-        diagBackendResp.innerText = ${response.status} OK;
+        diagBackendResp.innerText = String(response.status || "") + " OK";
         return response.data;
     } catch (e) {
-        diagBackendResp.innerText = Error;
+        diagBackendResp.innerText = "Error";
         console.error("API Call failed:", e);
         throw e;
     }
@@ -96,7 +102,7 @@ async function loadStudents() {
             students.forEach(s => {
                 const opt = document.createElement('option');
                 opt.value = s.id;
-                opt.innerText = ${s.name} ();
+                opt.innerText = (s.name || "Alumno " + s.id);
                 select.appendChild(opt);
             });
             select.disabled = false;
@@ -134,7 +140,7 @@ document.getElementById('btnDetect').addEventListener('click', async () => {
         
         if (response && response.fields) {
             if (response.fields.length === 0) return setError("No se detectaron campos.");
-            log(Detectados  campos.);
+            log("Detectados " + response.fields.length + " campos.");
             
             try {
                 const resData = await apiCall('/api/forms/analyze', {
@@ -175,7 +181,7 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
         });
         
         currentAnswers = response.answers;
-        log(Se generaron  respuestas.);
+        log("Se generaron " + currentAnswers.length + " respuestas.");
         renderFields(currentFields, currentAnswers);
         document.getElementById('btnFill').disabled = false;
     } catch(e) {
@@ -243,14 +249,14 @@ function renderFields(fields, answers = []) {
         
         const spanLabel = document.createElement('span');
         spanLabel.className = 'label';
-        spanLabel.innerText = ${f.normalizedLabel || 'Sin nombre'} ();
+        spanLabel.innerText = (f.normalizedLabel || "Sin nombre") + " (" + (f.type || "") + ")";
         item.appendChild(spanLabel);
         
         const ans = answers.find(a => a.fieldId === f.fieldId);
         if (ans) {
             const spanAns = document.createElement('span');
             spanAns.className = 'answer';
-            spanAns.innerText = Sugerencia: ;
+            spanAns.innerText = "Sugerencia: " + (ans.value || ans.answer || "");
             item.appendChild(document.createElement('br'));
             item.appendChild(spanAns);
             
@@ -259,7 +265,7 @@ function renderFields(fields, answers = []) {
             spanMeta.style.color = '#6b7280';
             spanMeta.style.display = 'block';
             spanMeta.style.marginTop = '0.25rem';
-            spanMeta.innerText = Fuente:  - ;
+            spanMeta.innerText = "Fuente: " + (ans.source || "-") + " - " + (ans.explanation || "");
             item.appendChild(spanMeta);
         }
         list.appendChild(item);
@@ -296,7 +302,7 @@ if (btnDetectCanvas) {
                 currentCanvasQuestion = response;
                 let detMsg = "Pregunta detectada: " + response.question.substring(0, 50) + "...";
                 if (response.options && response.options.length > 0) {
-                    detMsg += `\nAlternativas detectadas: ${response.options.length} (${response.selection_mode})`;
+                    detMsg += "\nAlternativas detectadas: " + response.options.length + " (" + response.selection_mode + ")";
                 }
                 logMsg(detMsg);
                 btnGenerateCanvas.disabled = false;
@@ -323,18 +329,18 @@ if (btnGenerateCanvas) {
             canvasResponseArea.style.display = 'block';
             canvasAnswer.innerText = resData.answer || 'Sin respuesta';
             
-            let explText = `Confianza: ${resData.confidence.toFixed(2)}`;
+            let explText = "Confianza: " + resData.confidence.toFixed(2);
             if (resData.explanation) {
-                explText += `\nMotivo: ${resData.explanation}`;
+                explText += "\nMotivo: " + resData.explanation;
             }
             if (resData.question_type === 'multiple_choice' && currentCanvasQuestion.selection_mode === 'multiple') {
-                explText += `\n\nADVERTENCIA: Pregunta de selección múltiple detectada. Revisa manualmente las opciones sugeridas.`;
+                explText += "\n\nADVERTENCIA: Pregunta de selección múltiple detectada. Revisa manualmente las opciones sugeridas.";
             }
             canvasExplanation.innerText = explText;
             
             if (resData.sources && resData.sources.length > 0) {
                 canvasSources.innerHTML = "<strong>Fuentes:</strong><br>" + 
-                    resData.sources.map(s => `- [${s.section}] ${s.filename}`).join("<br>");
+                    resData.sources.map(s => "- [" + s.section + "] " + s.filename).join("<br>");
             } else {
                 canvasSources.innerHTML = "<em>Sin fuentes locales encontradas.</em>";
             }

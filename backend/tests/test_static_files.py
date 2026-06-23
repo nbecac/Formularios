@@ -1,4 +1,4 @@
-﻿import os
+import os
 import json
 from pathlib import Path
 
@@ -41,3 +41,24 @@ def test_requirements_format():
     
     for line in non_empty_lines:
         assert " " not in line.strip(), f"Invalid line in requirements.txt: '{line}'"
+
+def test_popup_syntax_validity():
+    root_dir = Path(__file__).parent.parent.parent
+    popup_path = root_dir / "extension" / "popup.js"
+    assert popup_path.exists(), "popup.js not found"
+    
+    content = popup_path.read_text(encoding="utf-8")
+    
+    # Buscar patrones inválidos que indican interpolación mal parseada sin backticks
+    invalid_patterns = [
+        "url: ${API_URL}",
+        "innerText = ${",
+        "throw new Error(HTTP",
+        "log(Detectados",
+        "log(Se generaron",
+        "innerText = Sugerencia:",
+        "innerText = Fuente:"
+    ]
+    
+    for pattern in invalid_patterns:
+        assert pattern not in content, f"popup.js contiene sintaxis inválida: '{pattern}'"
