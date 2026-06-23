@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="popup.css">
+    <title>Formularios AI Assistant</title>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h2>Formularios AI</h2>
+            <div id="statusBadge" class="badge error">Desconectado</div>
+        </header>
+
+        <div class="warning-box">
+            <strong>Atención:</strong> La extensión solo rellena borradores. Revisa antes de enviar. ¡NUNCA enviará formularios automáticamente!
+        </div>
+
+        <div class="section">
+            <label for="studentSelect">Alumno / Perfil:</label>
+            <select id="studentSelect" disabled>
+                <option value="">Cargando estudiantes...</option>
+            </select>
+        </div>
+
+        <div class="actions">
+            <button id="btnDetect" class="btn primary">🔍 Detectar campos</button>
+            <button id="btnGenerate" class="btn secondary" disabled>✨ Generar respuestas</button>
+            <button id="btnFill" class="btn success" disabled>📝 Rellenar borrador</button>
+            <button id="btnClear" class="btn text">Limpiar</button>
+        </div>
+
+        <div class="section">
+            <h3>Campos Detectados (<span id="fieldCount">0</span>)</h3>
+            <div id="fieldList" class="field-list">
+                <p class="empty-state">No hay campos detectados. Usa el botón de arriba.</p>
+            </div>
+        </div>
+
+        <div class="logs" id="logsArea">
+            Listo para iniciar.
+        </div>
+    </div>
+    <script src="popup.js"></script>
+</body>
+</html>
