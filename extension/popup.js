@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000";
+﻿const API_URL = "http://127.0.0.1:8000";
 let currentFields = [];
 let currentAnswers = [];
 
@@ -38,19 +38,19 @@ async function apiCall(path, options = {}) {
     try {
         const response = await new Promise((resolve) => {
             chrome.runtime.sendMessage(
-                { action: "fetch_api", url: `${API_URL}${path}`, options },
+                { action: "fetch_api", url: ${API_URL}, options },
                 (res) => resolve(res)
             );
         });
         
         if (!response) throw new Error("No hay respuesta del Service Worker.");
         if (response.error) throw new Error(response.error);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) throw new Error(HTTP );
         
-        diagBackendResp.innerText = `${response.status} OK`;
+        diagBackendResp.innerText = ${response.status} OK;
         return response.data;
     } catch (e) {
-        diagBackendResp.innerText = `Error`;
+        diagBackendResp.innerText = Error;
         console.error("API Call failed:", e);
         throw e;
     }
@@ -88,18 +88,29 @@ async function loadStudents() {
         const students = await apiCall('/api/students');
         const select = document.getElementById('studentSelect');
         select.innerHTML = '<option value="">Selecciona un alumno...</option>';
-        students.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s.id;
-            opt.innerText = `${s.name} (${s.course})`;
-            select.appendChild(opt);
-        });
-        select.disabled = false;
-        log("Alumnos cargados.");
+        if (students.length === 0) {
+            select.innerHTML = '<option value="">No hay alumnos en la BD</option>';
+            select.disabled = true;
+            log("No hay alumnos registrados.");
+        } else {
+            students.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.innerText = ${s.name} ();
+                select.appendChild(opt);
+            });
+            select.disabled = false;
+            log("Alumnos cargados.");
+        }
     } catch(e) {
         setError("No se pudieron cargar alumnos.");
     }
 }
+
+document.getElementById('btnReloadStudents').addEventListener('click', () => {
+    log("Recargando alumnos...");
+    loadStudents();
+});
 
 document.getElementById('studentSelect').addEventListener('change', (e) => {
     const sel = e.target;
@@ -123,7 +134,7 @@ document.getElementById('btnDetect').addEventListener('click', async () => {
         
         if (response && response.fields) {
             if (response.fields.length === 0) return setError("No se detectaron campos.");
-            log(`Detectados ${response.fields.length} campos.`);
+            log(Detectados  campos.);
             
             try {
                 const resData = await apiCall('/api/forms/analyze', {
@@ -164,7 +175,7 @@ document.getElementById('btnGenerate').addEventListener('click', async () => {
         });
         
         currentAnswers = response.answers;
-        log(`Se generaron ${currentAnswers.length} respuestas.`);
+        log(Se generaron  respuestas.);
         renderFields(currentFields, currentAnswers);
         document.getElementById('btnFill').disabled = false;
     } catch(e) {
@@ -232,16 +243,24 @@ function renderFields(fields, answers = []) {
         
         const spanLabel = document.createElement('span');
         spanLabel.className = 'label';
-        spanLabel.innerText = `${f.normalizedLabel || 'Sin nombre'} (${f.normalizedType})`;
+        spanLabel.innerText = ${f.normalizedLabel || 'Sin nombre'} ();
         item.appendChild(spanLabel);
         
         const ans = answers.find(a => a.fieldId === f.fieldId);
         if (ans) {
             const spanAns = document.createElement('span');
             spanAns.className = 'answer';
-            spanAns.innerText = `Sugerencia: ${ans.answer || '[Vacio]'}`;
+            spanAns.innerText = Sugerencia: ;
             item.appendChild(document.createElement('br'));
             item.appendChild(spanAns);
+            
+            const spanMeta = document.createElement('span');
+            spanMeta.style.fontSize = '0.75rem';
+            spanMeta.style.color = '#6b7280';
+            spanMeta.style.display = 'block';
+            spanMeta.style.marginTop = '0.25rem';
+            spanMeta.innerText = Fuente:  - ;
+            item.appendChild(spanMeta);
         }
         list.appendChild(item);
     });

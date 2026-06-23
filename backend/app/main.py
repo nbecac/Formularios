@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+﻿from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
@@ -27,6 +27,76 @@ def health_check():
 def get_students(db: Session = Depends(get_db)):
     students = crud.get_students(db)
     return students
+
+@app.get("/api/students/{student_id}", response_model=schemas.StudentDetail)
+def get_student(student_id: int, db: Session = Depends(get_db)):
+    student = crud.get_student(db, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return student
+
+@app.post("/api/students", response_model=schemas.StudentResponse)
+def create_student(student: schemas.StudentCreate, db: Session = Depends(get_db)):
+    return crud.create_student(db, student)
+
+@app.put("/api/students/{student_id}", response_model=schemas.StudentResponse)
+def update_student(student_id: int, student: schemas.StudentUpdate, db: Session = Depends(get_db)):
+    db_student = crud.update_student(db, student_id, student)
+    if not db_student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return db_student
+
+@app.delete("/api/students/{student_id}")
+def delete_student(student_id: int, db: Session = Depends(get_db)):
+    db_student = crud.delete_student(db, student_id)
+    if not db_student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return {"status": "success", "detail": "Student deleted"}
+
+@app.get("/api/students/{student_id}/observations", response_model=List[schemas.ObservationResponse])
+def get_student_observations(student_id: int, db: Session = Depends(get_db)):
+    student = crud.get_student(db, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return crud.get_student_observations(db, student_id)
+
+@app.post("/api/students/{student_id}/observations", response_model=schemas.ObservationResponse)
+def create_observation(student_id: int, observation: schemas.ObservationCreate, db: Session = Depends(get_db)):
+    student = crud.get_student(db, student_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    return crud.create_observation(db, student_id, observation)
+
+@app.put("/api/observations/{observation_id}", response_model=schemas.ObservationResponse)
+def update_observation(observation_id: int, observation: schemas.ObservationUpdate, db: Session = Depends(get_db)):
+    db_obs = crud.update_observation(db, observation_id, observation)
+    if not db_obs:
+        raise HTTPException(status_code=404, detail="Observation not found")
+    return db_obs
+
+@app.delete("/api/observations/{observation_id}")
+def delete_observation(observation_id: int, db: Session = Depends(get_db)):
+    db_obs = crud.delete_observation(db, observation_id)
+    if not db_obs:
+        raise HTTPException(status_code=404, detail="Observation not found")
+    return {"status": "success", "detail": "Observation deleted"}
+
+@app.post("/api/import/students-csv", response_model=schemas.ImportSummaryResponse)
+async def import_students_csv(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="File must be a CSV")
+    
+    content = await file.read()
+    try:
+        csv_text = content.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        try:
+            csv_text = content.decode('utf-8')
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=400, detail="Invalid encoding. Use UTF-8")
+            
+    summary = crud.import_students_csv(db, csv_text)
+    return summary
 
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):

@@ -16,3 +16,4 @@ start cmd /k "uvicorn app.main:app --reload --host 127.0.0.1 --port 8000"
 
 echo Backend iniciado en puerto 8000.
 echo Abre tu navegador en Chrome, carga la extension e ingresa a docs/formulario_prueba.html
+pause

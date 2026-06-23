@@ -1,10 +1,17 @@
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 from typing import List, Optional, Any
 from datetime import datetime
 
 class ObservationBase(BaseModel):
     category: str
     content: str
+
+class ObservationCreate(ObservationBase):
+    pass
+
+class ObservationUpdate(BaseModel):
+    category: Optional[str] = None
+    content: Optional[str] = None
 
 class ObservationResponse(ObservationBase):
     id: int
@@ -18,12 +25,23 @@ class StudentBase(BaseModel):
     level: str
     notes: Optional[str] = None
 
+class StudentCreate(StudentBase):
+    pass
+
+class StudentUpdate(BaseModel):
+    name: Optional[str] = None
+    course: Optional[str] = None
+    level: Optional[str] = None
+    notes: Optional[str] = None
+
 class StudentResponse(StudentBase):
     id: int
     created_at: datetime
-    observations: List[ObservationResponse] = []
     class Config:
         from_attributes = True
+
+class StudentDetail(StudentResponse):
+    observations: List[ObservationResponse] = []
 
 class FormField(BaseModel):
     fieldId: str
@@ -74,3 +92,13 @@ class HistoryCreate(BaseModel):
     student_id: int
     detected_fields_json: str
     generated_answers_json: str
+
+class ImportCsvError(BaseModel):
+    row_index: int
+    error: str
+
+class ImportSummaryResponse(BaseModel):
+    alumnos_creados: int
+    alumnos_actualizados: int
+    observaciones_creadas: int
+    errores: List[ImportCsvError]

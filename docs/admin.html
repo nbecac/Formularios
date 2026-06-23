@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administracion de Formularios</title>
+    <style>
+        :root {
+            --bg-color: #f9fafb;
+            --text-color: #111827;
+            --primary-color: #2563eb;
+            --border-color: #e5e7eb;
+            --success-color: #10b981;
+            --danger-color: #ef4444;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+        .card {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            margin-top: 0;
+        }
+        button {
+            background: var(--primary-color);
+            color: #fff;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.875rem;
+        }
+        button:hover { background: #1d4ed8; }
+        button.danger { background: var(--danger-color); }
+        button.danger:hover { background: #b91c1c; }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .message {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .message.success { background: #d1fae5; color: #065f46; display: block; }
+        .message.error { background: #fee2e2; color: #991b1b; display: block; }
+        
+        #observations-section {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="global-msg" class="message"></div>
+    
+    <div class="container">
+        <!-- Panel Izquierdo: Alumnos -->
+        <div>
+            <div class="card" style="margin-bottom: 2rem;">
+                <h2>Importar Alumnos CSV</h2>
+                <input type="file" id="csv-file" accept=".csv">
+                <button onclick="importCsv()">Subir e Importar</button>
+            </div>
+
+            <div class="card" style="margin-bottom: 2rem;">
+                <h2>Nuevo Alumno</h2>
+                <input type="hidden" id="student-id">
+                <input type="text" id="student-name" placeholder="Nombre completo" required>
+                <input type="text" id="student-course" placeholder="Curso" required>
+                <input type="text" id="student-level" placeholder="Nivel">
+                <textarea id="student-notes" placeholder="Notas adicionales"></textarea>
+                <button onclick="saveStudent()" id="btn-save-student">Crear Alumno</button>
+                <button onclick="clearStudentForm()" style="background: #6b7280;">Limpiar</button>
+            </div>
+            
+            <div class="card">
+                <h2>Lista de Alumnos</h2>
+                <button onclick="loadStudents()" style="margin-bottom: 1rem;">Actualizar Lista</button>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Curso</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="students-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Observaciones -->
+        <div>
+            <div class="card" id="observations-section">
+                <h2>Observaciones de: <span id="current-student-name">Ninguno</span></h2>
+                
+                <div style="margin-bottom: 2rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 1rem;">
+                    <h3>Agregar Observacion</h3>
+                    <select id="obs-category">
+                        <option value="general">General</option>
+                        <option value="academico">Academico</option>
+                        <option value="comportamiento">Comportamiento</option>
+                        <option value="participacion">Participacion</option>
+                        <option value="asistencia">Asistencia</option>
+                        <option value="apoyo">Apoyo Adicional</option>
+                    </select>
+                    <textarea id="obs-content" placeholder="Contenido de la observacion..." required></textarea>
+                    <button onclick="addObservation()">Agregar Observacion</button>
+                </div>
+                
+                <h3>Historial de Observaciones</h3>
+                <div id="observations-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+        let currentStudentId = null;
+
+        function showMessage(text, isError = false) {
+            const msg = document.getElementById('global-msg');
+            msg.textContent = text;
+            msg.className = 'message ' + (isError ? 'error' : 'success');
+            setTimeout(() => { msg.className = 'message'; }, 5000);
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const res = await fetch(`${API_BASE}${endpoint}`, options);
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    throw new Error(data.detail || `HTTP Error ${res.status}`);
+                }
+                return await res.json();
+            } catch (err) {
+                showMessage(`Backend error: ${err.message}`, true);
+                throw err;
+            }
+        }
+
+        async function loadStudents() {
+            try {
+                const students = await apiCall('/students');
+                const tbody = document.getElementById('students-tbody');
+                tbody.innerHTML = '';
+                students.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td>${s.name}</td>
+                        <td>${s.course}</td>
+                        <td>
+                            <button onclick="editStudent(${s.id})">Editar</button>
+                            <button onclick="manageObservations(${s.id}, '${s.name.replace(/'/g, "\\'")}')">Obs</button>
+                            <button class="danger" onclick="deleteStudent(${s.id})">X</button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch(e) {}
+        }
+
+        async function saveStudent() {
+            const id = document.getElementById('student-id').value;
+            const payload = {
+                name: document.getElementById('student-name').value,
+                course: document.getElementById('student-course').value,
+                level: document.getElementById('student-level').value,
+                notes: document.getElementById('student-notes').value
+            };
+            if(!payload.name || !payload.course) return showMessage('Nombre y curso requeridos', true);
+            
+            try {
+                if(id) {
+                    await apiCall(`/students/${id}`, {
+                        method: 'PUT',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    showMessage('Alumno actualizado');
+                } else {
+                    await apiCall('/students', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payload)
+                    });
+                    showMessage('Alumno creado');
+                }
+                clearStudentForm();
+                loadStudents();
+            } catch(e) {}
+        }
+
+        async function editStudent(id) {
+            try {
+                const s = await apiCall(`/students/${id}`);
+                document.getElementById('student-id').value = s.id;
+                document.getElementById('student-name').value = s.name;
+                document.getElementById('student-course').value = s.course;
+                document.getElementById('student-level').value = s.level || '';
+                document.getElementById('student-notes').value = s.notes || '';
+                document.getElementById('btn-save-student').textContent = 'Actualizar Alumno';
+            } catch(e) {}
+        }
+
+        function clearStudentForm() {
+            document.getElementById('student-id').value = '';
+            document.getElementById('student-name').value = '';
+            document.getElementById('student-course').value = '';
+            document.getElementById('student-level').value = '';
+            document.getElementById('student-notes').value = '';
+            document.getElementById('btn-save-student').textContent = 'Crear Alumno';
+        }
+
+        async function deleteStudent(id) {
+            if(!confirm('Seguro que deseas eliminar este alumno y sus observaciones?')) return;
+            try {
+                await apiCall(`/students/${id}`, { method: 'DELETE' });
+                showMessage('Alumno eliminado');
+                if (currentStudentId === id) {
+                    document.getElementById('observations-section').style.display = 'none';
+                    currentStudentId = null;
+                }
+                loadStudents();
+            } catch(e) {}
+        }
+
+        async function manageObservations(studentId, name) {
+            currentStudentId = studentId;
+            document.getElementById('current-student-name').textContent = name;
+            document.getElementById('observations-section').style.display = 'block';
+            loadObservations();
+        }
+
+        async function loadObservations() {
+            if(!currentStudentId) return;
+            try {
+                const obs = await apiCall(`/students/${currentStudentId}/observations`);
+                const list = document.getElementById('observations-list');
+                list.innerHTML = '';
+                obs.forEach(o => {
+                    const d = document.createElement('div');
+                    d.style.border = '1px solid #e5e7eb';
+                    d.style.padding = '1rem';
+                    d.style.marginBottom = '0.5rem';
+                    d.style.borderRadius = '4px';
+                    d.innerHTML = `
+                        <strong>[${o.category}]</strong> 
+                        <span style="color:#6b7280; font-size:0.875rem;">${new Date(o.created_at).toLocaleString()}</span>
+                        <p style="margin: 0.5rem 0;">${o.content}</p>
+                        <button class="danger" onclick="deleteObservation(${o.id})">Eliminar</button>
+                    `;
+                    list.appendChild(d);
+                });
+            } catch(e) {}
+        }
+
+        async function addObservation() {
+            if(!currentStudentId) return;
+            const payload = {
+                category: document.getElementById('obs-category').value,
+                content: document.getElementById('obs-content').value
+            };
+            if(!payload.content) return showMessage('Contenido requerido', true);
+            
+            try {
+                await apiCall(`/students/${currentStudentId}/observations`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                showMessage('Observacion creada');
+                document.getElementById('obs-content').value = '';
+                loadObservations();
+            } catch(e) {}
+        }
+
+        async function deleteObservation(id) {
+            if(!confirm('Seguro que deseas eliminar esta observacion?')) return;
+            try {
+                await apiCall(`/observations/${id}`, { method: 'DELETE' });
+                showMessage('Observacion eliminada');
+                loadObservations();
+            } catch(e) {}
+        }
+
+        async function importCsv() {
+            const fileInput = document.getElementById('csv-file');
+            if(!fileInput.files.length) return showMessage('Seleccione un archivo CSV', true);
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            
+            try {
+                const res = await fetch(`${API_BASE}/import/students-csv`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if(!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.detail || 'Error de importacion');
+                }
+                const summary = await res.json();
+                
+                let msg = `CSV importado. Creados: ${summary.alumnos_creados}, Actualizados: ${summary.alumnos_actualizados}, Obs: ${summary.observaciones_creadas}. `;
+                if(summary.errores.length > 0) {
+                    msg += `Errores en filas: ${summary.errores.map(e => e.row_index).join(', ')}`;
+                }
+                
+                showMessage(msg, summary.errores.length > 0);
+                fileInput.value = '';
+                loadStudents();
+            } catch(e) {
+                showMessage(`Error: ${e.message}`, true);
+            }
+        }
+
+        // Init
+        loadStudents();
+    </script>
+</body>
+</html>
