@@ -169,16 +169,25 @@ class KnowledgeSourceSnippet(BaseModel):
     filename: str
     snippet: str
 
+class CanvasOption(BaseModel):
+    label: str
+    text: str
+
 class CanvasQuestionRequest(BaseModel):
     question: str
-    options: Optional[List[str]] = None
+    options: Optional[List[CanvasOption]] = []
     question_type: Optional[str] = None
     instructions: Optional[str] = None
+    selection_mode: Optional[str] = "single"
 
 class CanvasQuestionResponse(BaseModel):
     answer: str
+    selected_option: Optional[str] = None
+    selected_option_text: Optional[str] = None
+    selected_options: List[str] = []
     confidence: float
     sources: List[KnowledgeSourceSnippet] = []
     explanation: str
+    question_type: str
     mode: str
-    needs_review: bool
+    needs_review: bool = True

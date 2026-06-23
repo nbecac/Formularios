@@ -169,9 +169,8 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     query = req.question
     preferred = ["E1", "E2", "E3", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
     
-    # Simple heuristic to determine question intent
     clean_q = query.lower()
-    is_implementation = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "qué hiciste", "que hiciste", "cómo respondiste", "como respondiste", "cómo implementaste", "como implementaste"])
+    is_implementation = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "qué hiciste", "que hiciste", "cómo respondiste", "como respondiste", "cómo implementaste", "como implementaste", "entrega", "proyecto"])
     is_improvement = any(w in clean_q for w in ["qué cambiarías", "que cambiarias", "cómo mejorarías", "como mejorarias"])
     is_theory = any(w in clean_q for w in ["teoría", "teoria", "concepto", "definición", "que es un", "qué es un"])
     is_requirement = any(w in clean_q for w in ["enunciado", "requisitos", "se pedía", "se pedia"])
@@ -195,12 +194,75 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
         ))
         evidence_text += f"\n--- [{c.section}] {c.source.title} ---\n{c.content}\n"
 
+    # Modo Alternativas
+    if req.options and len(req.options) > 0 and req.question_type == 'multiple_choice':
+        if not chunks:
+            return schemas.CanvasQuestionResponse(
+                answer="No hay evidencia suficiente en el material cargado para sugerir una alternativa con seguridad.",
+                selected_option=None,
+                selected_option_text=None,
+                confidence=0.1,
+                sources=[],
+                explanation="Búsqueda sin resultados relevantes en el material local.",
+                question_type="multiple_choice",
+                mode="multiple_choice_suggestion",
+                needs_review=True
+            )
+        
+        # Scoring manual simple
+        scores = []
+        for opt in req.options:
+            score = 0
+            opt_text_clean = opt.text.lower()
+            if len(opt_text_clean) > 3:
+                for c in chunks:
+                    c_clean = c.content.lower()
+                    if opt_text_clean in c_clean:
+                        score += 3
+                    
+                    tokens = opt_text_clean.split()
+                    for t in tokens:
+                        if len(t) > 3 and t in c_clean:
+                            score += 0.5
+            scores.append((score, opt))
+            
+        scores.sort(key=lambda x: x[0], reverse=True)
+        best_score, best_opt = scores[0]
+        second_score = scores[1][0] if len(scores) > 1 else 0
+        
+        if best_score <= 0 or (best_score - second_score) < 1.0:
+            return schemas.CanvasQuestionResponse(
+                answer="No hay evidencia suficiente en el material cargado para sugerir una alternativa con seguridad.",
+                selected_option=None,
+                selected_option_text=None,
+                confidence=0.2,
+                sources=sources,
+                explanation=f"Empate o score muy bajo (Mejor score: {best_score}). No se puede decidir con seguridad.",
+                question_type="multiple_choice",
+                mode="multiple_choice_suggestion",
+                needs_review=True
+            )
+            
+        return schemas.CanvasQuestionResponse(
+            answer=f"Alternativa sugerida: {best_opt.label}",
+            selected_option=best_opt.label,
+            selected_option_text=best_opt.text,
+            confidence=min(0.5 + (best_score * 0.1), 0.9),
+            sources=sources,
+            explanation=f"La alternativa '{best_opt.label}' tiene mayor coincidencia con el material recuperado (Score: {best_score}).",
+            question_type="multiple_choice",
+            mode="multiple_choice_suggestion",
+            needs_review=True
+        )
+
+    # Modo Texto (Mantenido por compatibilidad)
     if not chunks:
         return schemas.CanvasQuestionResponse(
             answer="No se encontró evidencia suficiente en el material cargado para responder a esta pregunta con certeza.",
             confidence=0.1,
             sources=[],
             explanation="Búsqueda sin resultados relevantes en el material local.",
+            question_type="text",
             mode="knowledge_only",
             needs_review=True
         )
@@ -266,6 +328,7 @@ Evidencia extraída del material del curso:
         confidence=0.5,
         sources=sources,
         explanation="Extracción directa del mejor chunk debido a modo mock.",
+        question_type="text",
         mode="knowledge_only_mock",
         needs_review=True
     )

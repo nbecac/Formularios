@@ -6,6 +6,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         } else if (request.action === "fill_fields") {
             fillFields(request.answers);
             sendResponse({ success: true });
+        } else if (request.action === "detect_canvas_question") {
+            sendResponse(extractMultipleChoiceQuestion());
         }
     } catch (e) {
         console.error("Content Script Error:", e);
@@ -99,6 +101,7 @@ function detectFields() {
 }
 
 function fillFields(answers) {
+    // REGLA DE SEGURIDAD ABSOLUTA: PROHIBIDO MARCAR CHECKBOX O RADIO AUTOMATICAMENTE
     answers.forEach(ans => {
         if (!ans.answer) return;
         
@@ -126,46 +129,70 @@ function fillFields(answers) {
                 el.dispatchEvent(new Event('change', { bubbles: true }));
                 el.dispatchEvent(new Event('blur', { bubbles: true }));
             }
-        } else if (type === 'radio' || type === 'checkbox') {
-            let targets = [el];
-            if (el.name) {
-                targets = Array.from(document.querySelectorAll("input[name='" + el.name + "']"));
-            }
-            
-            targets.forEach(t => {
-                if (String(t.value).toLowerCase() === String(ans.answer).toLowerCase()) {
-                    t.checked = true;
-                    t.dispatchEvent(new Event('change', { bubbles: true }));
-                } else if ((String(ans.answer).toLowerCase() === 'sí' || String(ans.answer).toLowerCase() === 'yes') && (String(t.value).toLowerCase() === 'sí' || String(t.value).toLowerCase() === 'yes')) {
-                     t.checked = true;
-                     t.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
         }
+        // Eliminado intencionalmente el soporte para type === 'radio' || type === 'checkbox' para evitar autollenado inseguro.
     });
 }
 
-function detectCanvasQuestion() {
+function extractMultipleChoiceQuestion() {
     let qText = '';
     let options = [];
     let qType = 'unknown';
+    let selectionMode = 'single';
     
-    const questionContainer = document.querySelector('.question:not(.answered_question), .display_question');
+    // Buscar contenedores comunes de preguntas
+    const questionContainer = document.querySelector('.question:not(.answered_question), .display_question, .multiple-choice-question, fieldset');
+    
     if (questionContainer) {
-        const titleEl = questionContainer.querySelector('.question_text');
+        const titleEl = questionContainer.querySelector('.question_text, legend, h3, h2, .title');
         if (titleEl) qText = titleEl.innerText;
         
         const inputs = questionContainer.querySelectorAll('input[type="radio"], input[type="checkbox"]');
         if (inputs.length > 0) {
-            qType = inputs[0].type;
+            qType = 'multiple_choice';
+            selectionMode = inputs[0].type === 'checkbox' ? 'multiple' : 'single';
+            
             inputs.forEach(i => {
-                const label = questionContainer.querySelector(`label[for="${i.id}"]`);
-                if (label) options.push(label.innerText);
+                let labelText = '';
+                
+                // Intento 1: label for
+                if (i.id) {
+                    const labelEl = questionContainer.querySelector(`label[for="${i.id}"]`);
+                    if (labelEl) labelText = labelEl.innerText;
+                }
+                
+                // Intento 2: label padre
+                if (!labelText) {
+                    const parentLabel = i.closest('label');
+                    if (parentLabel) labelText = parentLabel.innerText;
+                }
+                
+                // Intento 3: texto siguiente
+                if (!labelText && i.nextSibling && i.nextSibling.nodeType === 3) {
+                    labelText = i.nextSibling.textContent.trim();
+                }
+                
+                // Limpiar texto y buscar patron A/B/C/D
+                labelText = labelText.trim();
+                let labelLetter = i.value || `Opt_${options.length + 1}`;
+                
+                // Si el label visible empieza por A) o B), lo usamos como identificador corto
+                const match = labelText.match(/^([A-E])[\)\.]?\s+(.*)/i);
+                if (match) {
+                    labelLetter = match[1].toUpperCase();
+                    labelText = match[2];
+                }
+
+                options.push({
+                    label: labelLetter,
+                    text: labelText
+                });
             });
         } else if (questionContainer.querySelector('textarea, input[type="text"]')) {
             qType = 'text';
         }
     } else {
+        // Fallback genérico si no hay contenedor visible
         const activeField = document.activeElement;
         if (activeField && (activeField.tagName === 'INPUT' || activeField.tagName === 'TEXTAREA')) {
             const labelEl = document.querySelector(`label[for="${activeField.id}"]`);
@@ -178,13 +205,7 @@ function detectCanvasQuestion() {
     return {
         question: qText.trim().substring(0, 500),
         options: options,
-        question_type: qType
+        question_type: qType,
+        selection_mode: selectionMode
     };
 }
-
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === "detect_canvas_question") {
-        sendResponse(detectCanvasQuestion());
-    }
-    return true;
-});

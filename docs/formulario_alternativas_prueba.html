@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Formulario de Prueba de Alternativas - DCColo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
+        .question { background: #f9f9f9; padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem; border: 1px solid #ddd; }
+        .question_text { font-weight: bold; margin-bottom: 1rem; font-size: 1.1rem; }
+        .options { display: flex; flex-direction: column; gap: 0.5rem; }
+        label { cursor: pointer; padding: 0.5rem; border: 1px solid #eee; border-radius: 4px; display: flex; align-items: center; gap: 0.5rem; }
+        label:hover { background: #f0f0f0; }
+        .btn-submit { background: #d1d5db; color: #4b5563; padding: 0.75rem 1.5rem; border: none; border-radius: 4px; font-weight: bold; cursor: not-allowed; margin-top: 1rem; width: 100%; }
+        .warning { color: #b91c1c; background: #fef2f2; padding: 1rem; border-radius: 4px; border: 1px solid #f87171; margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+
+    <h1>Evaluación: Base de Datos (Modo Prueba Local)</h1>
+    
+    <div class="warning">
+        <strong>Atención:</strong> Este es un entorno de prueba local (no conectado a Canvas). El botón de envío está intencionalmente deshabilitado. No se envían respuestas reales.
+    </div>
+
+    <form onsubmit="event.preventDefault(); alert('Botón bloqueado por seguridad.');">
+        
+        <!-- Pregunta 1: E2 (Radio) -->
+        <div class="question">
+            <div class="question_text">1. Según la implementación de la Entrega 2, ¿cómo se resolvió el sistema de pagos de membresías?</div>
+            <div class="options">
+                <label for="q1_a"><input type="radio" name="q1" id="q1_a" value="A"> A) Se utilizó una API externa (Transbank) conectada directamente al backend.</label>
+                <label for="q1_b"><input type="radio" name="q1" id="q1_b" value="B"> B) Mediante un archivo CSV proporcionado llamado 'pagos_membresias.csv' del cual se extrajeron e importaron los datos.</label>
+                <label for="q1_c"><input type="radio" name="q1" id="q1_c" value="C"> C) No se implementó sistema de pagos en la E2.</label>
+                <label for="q1_d"><input type="radio" name="q1" id="q1_d" value="D"> D) Se creó un trigger automático en la BD para generar pagos mensuales simulados.</label>
+            </div>
+        </div>
+
+        <!-- Pregunta 2: E1 (Radio) -->
+        <div class="question">
+            <div class="question_text">2. En el Modelo Entidad-Relación de la Entrega 1, ¿cómo se modela la relación entre "Socio" y "Beneficio"?</div>
+            <div class="options">
+                <label for="q2_a"><input type="radio" name="q2" id="q2_a" value="A"> A) Relación 1 a 1, un socio solo puede tener un beneficio.</label>
+                <label for="q2_b"><input type="radio" name="q2" id="q2_b" value="B"> B) Relación N a M, donde un socio puede acceder a muchos beneficios y un beneficio aplica a muchos socios.</label>
+                <label for="q2_c"><input type="radio" name="q2" id="q2_c" value="C"> C) Relación jerárquica donde Beneficio hereda de Socio.</label>
+                <label for="q2_d"><input type="radio" name="q2" id="q2_d" value="D"> D) Relación 1 a N, un socio puede tener muchos beneficios, pero el beneficio es exclusivo de un socio.</label>
+            </div>
+        </div>
+
+        <!-- Pregunta 3: Pregunta de Mejoras (Radio) -->
+        <div class="question">
+            <div class="question_text">3. Considerando las dificultades que tuviste en la E2, ¿qué cambiarías del modelo de base de datos para la E3?</div>
+            <div class="options">
+                <label for="q3_a"><input type="radio" name="q3" id="q3_a" value="A"> A) Migraría la base de datos de PostgreSQL a MongoDB para mejorar la velocidad de lectura de documentos.</label>
+                <label for="q3_b"><input type="radio" name="q3" id="q3_b" value="B"> B) Eliminaría las llaves foráneas para facilitar la inserción masiva de datos y evitaría las restricciones de integridad.</label>
+                <label for="q3_c"><input type="radio" name="q3" id="q3_c" value="C"> C) Añadiría índices secundarios en las tablas más consultadas como 'pagos' y normalizaría la tabla 'beneficios'.</label>
+                <label for="q3_d"><input type="radio" name="q3" id="q3_d" value="D"> D) Combinaría todas las tablas en una sola tabla grande ("Flat Table") para no usar JOINs.</label>
+            </div>
+        </div>
+
+        <!-- Pregunta 4: Checkboxes (Múltiple) -->
+        <div class="question">
+            <div class="question_text">4. ¿Qué archivos se utilizaron para la importación masiva de datos en la implementación (Entrega 2/3)? Selecciona todas las correctas.</div>
+            <div class="options">
+                <label for="q4_a"><input type="checkbox" name="q4" id="q4_a" value="A"> A) setup_script.sh</label>
+                <label for="q4_b"><input type="checkbox" name="q4" id="q4_b" value="B"> B) pagos_membresias.csv</label>
+                <label for="q4_c"><input type="checkbox" name="q4" id="q4_c" value="C"> C) init_database.sql</label>
+                <label for="q4_d"><input type="checkbox" name="q4" id="q4_d" value="D"> D) socios_activos.json</label>
+            </div>
+        </div>
+
+        <!-- Pregunta 5: Trampa sin evidencia -->
+        <div class="question">
+            <div class="question_text">5. ¿Cuál es el comando exacto para clonar el repositorio de React nativo utilizado en la interfaz de la E4?</div>
+            <div class="options">
+                <label for="q5_a"><input type="radio" name="q5" id="q5_a" value="A"> A) npx create-react-app frontend-dccolo</label>
+                <label for="q5_b"><input type="radio" name="q5" id="q5_b" value="B"> B) git clone https://github.com/dccolo/react-app.git</label>
+                <label for="q5_c"><input type="radio" name="q5" id="q5_c" value="C"> C) npm install react-native-cli</label>
+                <label for="q5_d"><input type="radio" name="q5" id="q5_d" value="D"> D) vue create frontend-app</label>
+            </div>
+        </div>
+
+        <button type="submit" class="btn-submit" disabled>Enviar Respuestas (Deshabilitado)</button>
+
+    </form>
+
+</body>
+</html>

@@ -25,13 +25,13 @@
         </div>
 
         <div class="section warning-box" style="background:#e0f2fe; border-color:#38bdf8; margin-top: 1rem;">
-            <h3>Modo Evaluación Autorizada (DB)</h3>
-            <p style="font-size:0.8rem;">Usar solo si esta herramienta está autorizada para la evaluación. El envío final es manual.</p>
-            <button id="btnDetectCanvas" class="btn primary" style="width:100%; margin-top:0.5rem;">Detectar pregunta actual</button>
-            <button id="btnGenerateCanvas" class="btn secondary" style="width:100%; margin-top:0.5rem;" disabled>Buscar en material y sugerir</button>
-            <button id="btnFillCanvas" class="btn success" style="width:100%; margin-top:0.5rem;" disabled>Rellenar borrador de Canvas</button>
+            <h3>Modo Alternativas (Evaluación Autorizada)</h3>
+            <p style="font-size:0.8rem;">Usar solo si esta herramienta está autorizada para la evaluación. La extensión NO marca ni envía respuestas. Revisa manualmente antes de responder.</p>
+            <button id="btnDetectCanvas" class="btn primary" style="width:100%; margin-top:0.5rem;">Detectar pregunta y alternativas</button>
+            <button id="btnGenerateCanvas" class="btn secondary" style="width:100%; margin-top:0.5rem;" disabled>Sugerir alternativa con material local</button>
             <div id="canvasResponseArea" style="margin-top: 0.5rem; padding: 0.5rem; background: #fff; border: 1px solid #ccc; display: none; font-size:0.8rem;">
-                <strong id="canvasAnswer"></strong>
+                <strong id="canvasAnswer"></strong><br>
+                <span id="canvasExplanation"></span>
                 <div id="canvasSources" style="margin-top: 0.5rem; color: #666;"></div>
             </div>
         </div>

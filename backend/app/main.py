@@ -263,12 +263,10 @@ def create_history(req: schemas.HistoryCreate, db: Session = Depends(get_db)):
     return {"status": "success", "id": history.id}
 
 @app.post("/api/knowledge/import-folder", response_model=schemas.KnowledgeImportSummary)
-def import_knowledge(db: Session = Depends(get_db)):
+def import_knowledge(base_folder: str = "Material para responder", db: Session = Depends(get_db)):
     """
     Importar la carpeta 'Material para responder' al conocimiento local.
     """
-    # Usar ruta relativa esperada
-    base_folder = "Material para responder"
     summary = crud.import_knowledge_folder(db, base_folder)
     return summary
 
