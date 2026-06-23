@@ -9,5 +9,6 @@ python-multipart==0.0.9
 pytest
 httpx<0.28.0
 openai
+google-genai
 
 pypdf>=3.17.0

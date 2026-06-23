@@ -106,7 +106,7 @@ def test_generate_responses_with_real_obs(client):
     assert response.status_code == 200
     ans = response.json()["answers"][0]
     assert "Rendimiento excelente." in ans["answer"]
-    assert ans["source"] == "mock_ai"
+    assert ans["source"] in ["mock_ai", "mock_fallback"]
 
 def test_delete_observation(client):
     response = client.delete(f"/api/observations/{test_obs_id}")

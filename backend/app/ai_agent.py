@@ -312,6 +312,66 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
                 option_scores=[]
             )
         
+        # --- Gemini Integration ---
+        ai_provider = settings.AI_PROVIDER.lower() if settings and hasattr(settings, "AI_PROVIDER") else ""
+        if ai_provider == "gemini" and hasattr(settings, "GEMINI_API_KEY") and settings.GEMINI_API_KEY:
+            try:
+                import json
+                from google import genai
+                from google.genai import types
+                
+                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                options_text = json.dumps([{"label": o.label, "text": o.text} for o in req.options], ensure_ascii=False)
+                
+                system_prompt = f"""Eres un asistente experto evaluando una pregunta de selección múltiple.
+Evalúa las opciones contra la evidencia proporcionada y selecciona la correcta.
+
+Evidencia extraida:
+{evidence_text}
+
+Opciones:
+{options_text}
+
+Debes responder SOLAMENTE con un objeto JSON (sin comillas invertidas ni markdown extra, que cumpla response_mime_type="application/json") que contenga:
+- "selected_option": el label de la opción seleccionada o null si es muy dudoso.
+- "confidence": número entre 0.0 y 1.0 indicando tu seguridad.
+- "explanation": por qué seleccionaste la opción basada en la evidencia."""
+                user_prompt = f"Pregunta: {req.question}"
+                
+                response = client.models.generate_content(
+                    model=settings.AI_MODEL or 'gemini-2.5-flash',
+                    contents=system_prompt + "\n\n" + user_prompt,
+                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                )
+                
+                data = json.loads(response.text)
+                selected_label = data.get("selected_option")
+                conf = float(data.get("confidence", 0.0))
+                expl = data.get("explanation", "Generado por Gemini.")
+                
+                selected_text = None
+                if selected_label:
+                    for opt in req.options:
+                        if opt.label == selected_label:
+                            selected_text = opt.text
+                            break
+                            
+                return schemas.CanvasQuestionResponse(
+                    answer=f"Alternativa sugerida: {selected_label}" if selected_label else "No se pudo determinar una alternativa con certeza.",
+                    selected_option=selected_label,
+                    selected_option_text=selected_text,
+                    confidence=conf,
+                    sources=sources,
+                    explanation=expl,
+                    question_type="multiple_choice",
+                    mode="gemini_multiple_choice_suggestion",
+                    needs_review=True,
+                    option_scores=[]
+                )
+            except Exception:
+                pass
+        # --- Fin Gemini Integration ---
+
         # Score each option against chunks
         scored = []
         for opt in req.options:

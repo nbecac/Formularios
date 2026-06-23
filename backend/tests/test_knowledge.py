@@ -244,3 +244,64 @@ def test_resumen_clave_imported():
     data = search_resp.json()
     assert len(data) >= 1
     assert "stored procedures" in data[0]["content"].lower()
+
+def test_canvas_gemini_fallback_without_key(monkeypatch):
+    """Test that if AI_PROVIDER is gemini but no key, it falls back to mock."""
+    client.post("/api/knowledge/import-folder?base_folder=test_material_tmp")
+    
+    from app.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "")
+    
+    response = client.post("/api/ai/canvas", json={
+        "question": "En el Modelo Entidad-Relacion de la Entrega 1, como se modela la relacion entre Socio y Beneficio?",
+        "options": [
+            {"label": "A", "text": "Relacion 1 a 1, un socio solo puede tener un beneficio."},
+            {"label": "B", "text": "Relacion N a M, donde un socio puede acceder a muchos beneficios y un beneficio aplica a muchos socios."},
+            {"label": "C", "text": "Relacion jerarquica donde Beneficio hereda de Socio."},
+            {"label": "D", "text": "Relacion 1 a N, un socio puede tener muchos beneficios, pero el beneficio es exclusivo de un socio."}
+        ],
+        "question_type": "multiple_choice",
+        "selection_mode": "single"
+    })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "multiple_choice_suggestion"  # mock mode
+    assert data["selected_option"] == "B"
+
+def test_canvas_gemini_mocked_success(monkeypatch):
+    """Test that if AI_PROVIDER is gemini and there is a key, it returns gemini's JSON result."""
+    client.post("/api/knowledge/import-folder?base_folder=test_material_tmp")
+    
+    from app.config import settings
+    monkeypatch.setattr(settings, "AI_PROVIDER", "gemini")
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "fake_key")
+    
+    import json
+    from unittest.mock import patch, MagicMock
+    
+    mock_response = MagicMock()
+    mock_response.text = json.dumps({"selected_option": "B", "confidence": 0.88, "explanation": "Mocked Gemini JSON"})
+    
+    with patch("google.genai.Client") as MockClient:
+        instance = MockClient.return_value
+        instance.models.generate_content.return_value = mock_response
+        
+        response = client.post("/api/ai/canvas", json={
+            "question": "Pregunta de prueba Gemini",
+            "options": [
+                {"label": "A", "text": "Opcion A"},
+                {"label": "B", "text": "Opcion B"}
+            ],
+            "question_type": "multiple_choice",
+            "selection_mode": "single"
+        })
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["mode"] == "gemini_multiple_choice_suggestion"
+    assert data["selected_option"] == "B"
+    assert data["confidence"] == 0.88
+    assert "Mocked Gemini JSON" in data["explanation"]
+
