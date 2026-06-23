@@ -67,8 +67,10 @@ class KnowledgeSource(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     source_type = Column(String) # ej. "txt", "md"
+    source_kind = Column(String, nullable=True) # "student_submission", "official_project_statement", etc.
     folder = Column(String, index=True) # "syllabus", "E1", "E2", "E3"
     filename = Column(String)
+    relative_path = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     priority = Column(Integer, default=1)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -87,6 +89,8 @@ class KnowledgeChunk(Base):
     topic = Column(String, nullable=True)
     content = Column(Text)
     page_number = Column(Integer, nullable=True)
+    chunk_index = Column(Integer, nullable=True)
+    metadata_json = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     source = relationship("KnowledgeSource", back_populates="chunks")

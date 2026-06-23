@@ -6,3 +6,9 @@ data/*.db
 node_modules/
 dist/
 .DS_Store
+
+*.db
+Material para responder/
+*.zip
+*.pdf
+.pytest_cache/

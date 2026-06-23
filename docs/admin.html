@@ -123,8 +123,22 @@
             </div>
         </div>
 
-        <!-- Panel Derecho: Observaciones -->
+        <!-- Panel Derecho: Observaciones e IA -->
         <div>
+            <!-- Nuevo Panel IA -->
+            <div class="card" style="margin-bottom: 2rem; background: #f0fdf4; border-color: #bbf7d0;">
+                <h2 style="color: #166534;">Diagnóstico IA</h2>
+                <div id="ai-status" style="margin-bottom: 1rem; font-size: 0.9rem;">
+                    <em>Cargando estado...</em>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <input type="text" id="ai-test-text" placeholder="Escribe el label de un campo (ej: fortalezas)" style="margin-bottom: 0;">
+                    <button onclick="testAI()">Probar IA</button>
+                </div>
+                <div id="ai-test-result" style="padding: 1rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px; min-height: 40px; font-family: monospace; white-space: pre-wrap;"></div>
+            </div>
+
             <div class="card" id="observations-section">
                 <h2>Observaciones de: <span id="current-student-name">Ninguno</span></h2>
                 
@@ -349,8 +363,45 @@
             }
         }
 
+        async function loadAIStatus() {
+            try {
+                const res = await apiCall('/debug/status');
+                const div = document.getElementById('ai-status');
+                let configured = res.ai_configured ? '<strong style="color:var(--success-color)">Configurado (Key OK)</strong>' : '<strong style="color:var(--danger-color)">Sin API Key (Usara Mock fallback)</strong>';
+                if (res.ai_provider === 'mock') configured = '<strong>Modo Local</strong>';
+                
+                div.innerHTML = `Provider actual: <strong>${res.ai_provider.toUpperCase()}</strong><br>Modelo: ${res.ai_model || 'N/A'}<br>Estado Key: ${configured}`;
+            } catch(e) {
+                document.getElementById('ai-status').innerHTML = 'Error al cargar estado IA';
+            }
+        }
+
+        async function testAI() {
+            const text = document.getElementById('ai-test-text').value;
+            const resDiv = document.getElementById('ai-test-result');
+            resDiv.textContent = 'Procesando con IA...';
+            
+            try {
+                const payload = {
+                    student_id: currentStudentId,
+                    text: text
+                };
+                const res = await apiCall('/ai/test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(payload)
+                });
+                
+                let sourceMsg = res.fallback ? '\n[!] Fallback activado (usando mock)' : '';
+                resDiv.textContent = `Provider: ${res.provider}${sourceMsg}\n\nRespuesta generada:\n"${res.answer}"`;
+            } catch(e) {
+                resDiv.textContent = `Error: ${e.message}`;
+            }
+        }
+
         // Init
         loadStudents();
+        loadAIStatus();
     </script>
 </body>
 </html>

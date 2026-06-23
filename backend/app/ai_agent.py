@@ -167,8 +167,21 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
     from . import crud, schemas
     
     query = req.question
-    preferred = ["E1", "E2", "E3", "syllabus"]
-    chunks = crud.search_knowledge(db, query, max_results=5, preferred_sections=preferred)
+    preferred = ["E1", "E2", "E3", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
+    
+    # Simple heuristic to determine question intent
+    clean_q = query.lower()
+    is_implementation = any(w in clean_q for w in ["cómo se hizo", "como se hizo", "qué hiciste", "que hiciste", "cómo respondiste", "como respondiste", "cómo implementaste", "como implementaste"])
+    is_improvement = any(w in clean_q for w in ["qué cambiarías", "que cambiarias", "cómo mejorarías", "como mejorarias"])
+    is_theory = any(w in clean_q for w in ["teoría", "teoria", "concepto", "definición", "que es un", "qué es un"])
+    is_requirement = any(w in clean_q for w in ["enunciado", "requisitos", "se pedía", "se pedia"])
+    
+    if is_theory:
+        preferred = ["syllabus_clases", "syllabus_ayudantias"]
+    elif is_requirement:
+        preferred = ["syllabus_project", "syllabus_project_E1", "syllabus_project_E2", "syllabus_project_E3"]
+    
+    chunks = crud.search_knowledge(db, query, max_results=6, preferred_sections=preferred)
     
     sources = []
     evidence_text = ""
@@ -184,7 +197,7 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
 
     if not chunks:
         return schemas.CanvasQuestionResponse(
-            answer="No se encontró evidencia suficiente en el material autorizado (E1/E2/E3/syllabus) para responder a esta pregunta con certeza.",
+            answer="No se encontró evidencia suficiente en el material cargado para responder a esta pregunta con certeza.",
             confidence=0.1,
             sources=[],
             explanation="Búsqueda sin resultados relevantes en el material local.",
@@ -205,10 +218,13 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
 Eres un asistente de evaluación enfocado estrictamente en un proyecto de Base de Datos.
 REGLAS ESTRICTAS:
 - Responde a la pregunta basándote ÚNICA y EXCLUSIVAMENTE en el material proporcionado abajo.
-- Si la pregunta pide "cómo se hizo", "qué se respondió", o "cómo evolucionó", debes ser fiel a lo que dice el material de las entregas (E1, E2, E3). NO inventes soluciones teóricas ideales si la entrega hizo otra cosa.
-- Si la pregunta pide "cómo lo cambiarías" o "mejorarías", indica primero qué se hizo realmente y luego sugiere la mejora basándote en la teoría.
 - Si no hay suficiente evidencia, indícalo claramente.
 - Nunca sugieras que enviarás la evaluación. El usuario debe revisar.
+
+INTENCIÓN DE LA PREGUNTA:
+- Si la pregunta pide "cómo se hizo", "qué se respondió", usa las fuentes de E1, E2, E3. Escribe usando frases como "En la entrega se implementó..."
+- Si la pregunta pide "qué cambiarías" o "mejorarías", indica primero qué se hizo realmente y luego sugiere la mejora separando claramente "Lo hecho" vs "Mejora sugerida".
+- Si es teórica, responde basándote en las clases/ayudantías provistas en la evidencia.
 
 Evidencia extraída del material del curso:
 {evidence_text}
@@ -236,7 +252,15 @@ Evidencia extraída del material del curso:
         except Exception as e:
             pass
 
-    ans_text = f"Basado en el material encontrado (principalmente '{sources[0].title}' de la sección {sources[0].section}):\n\n{sources[0].snippet}\n\n*Nota: Esta es una extracción directa ya que no hay LLM configurado.*"
+    # MOCK FALLBACK
+    ans_text = "Basado en el material encontrado:\n"
+    if is_implementation:
+        ans_text = "En la entrega se implementó lo siguiente, según la evidencia:\n"
+    elif is_improvement:
+        ans_text = "Lo hecho en la entrega fue:\n[Insertar hecho]\n\nMejora sugerida:\n[Insertar mejora teórica]\n\nEvidencia:\n"
+        
+    ans_text += f"{sources[0].snippet}\n\n*Nota: Extracción directa (modo mock).*\n"
+    
     return schemas.CanvasQuestionResponse(
         answer=ans_text,
         confidence=0.5,

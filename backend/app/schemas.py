@@ -153,6 +153,10 @@ class KnowledgeImportSummary(BaseModel):
     chunks_creados: int
     archivos_omitidos: int
     errores: List[str]
+    ruta_absoluta: Optional[str] = None
+    existe: Optional[bool] = None
+    es_dir: Optional[bool] = None
+    contenido_raiz: Optional[List[str]] = None
 
 class KnowledgeSearchRequest(BaseModel):
     query: str
