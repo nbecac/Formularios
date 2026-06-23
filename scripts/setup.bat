@@ -11,7 +11,7 @@ pip install -r backend\requirements.txt
 
 echo Inicializando base de datos con datos de prueba...
 set PYTHONPATH=%cd%\backend
-python backend\app\seed_data.py
+python -m app.seed_data
 
 echo.
 echo Configuracion completada con exito.
