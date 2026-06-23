@@ -18,4 +18,3 @@ python -m app.seed_data
 echo.
 echo Configuracion completada con exito.
 echo Para ejecutar el backend, utiliza: scripts\run_all.bat o backend\run_backend.bat
-pause

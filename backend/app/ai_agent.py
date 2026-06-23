@@ -14,7 +14,7 @@ def _mock_generate(field: FormAnalyzeResponseField, student: Student) -> str:
     elif "apoyo" in label_lower or "support" in label_lower:
         opts_lower = [o.lower() for o in field.options]
         if "sí" in opts_lower or "si" in opts_lower or "yes" in opts_lower:
-            return "Sí" if "apoyo" in student.notes.lower() or "dificultad" in student.notes.lower() else "No"
+            return "Sí" if student.notes and ("apoyo" in student.notes.lower() or "dificultad" in student.notes.lower()) else "No"
         return "No"
     elif "observación" in label_lower or "comentario" in label_lower or "desempeño" in label_lower or "comments" in label_lower:
         obs = [o.content for o in student.observations if "desempeño" in label_lower and o.category == "académico"]

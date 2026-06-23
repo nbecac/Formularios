@@ -18,7 +18,7 @@ function detectFields() {
     const fieldsMap = new Map();
     let fieldCounter = 0;
     
-    const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]), textarea, select, [contenteditable="true"]');
+    const inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]), textarea, select, [contenteditable="true"]');
     
     inputs.forEach(el => {
         if (el.offsetWidth === 0 || el.offsetHeight === 0) return;
