@@ -1,30 +1,25 @@
-# Reporte de Implementación del MVP "Formularios"
+# Reporte de Implementación y Correcciones del MVP "Formularios"
 
-## Archivos Creados
-Se implementó un ecosistema full-stack compuesto por:
-- **Backend FastAPI**: `app/main.py`, `app/models.py`, `app/schemas.py`, `app/crud.py`, `app/ai_agent.py`, `app/form_analyzer.py`, `app/database.py`, `app/seed_data.py`.
-- **Extensión Chrome**: `manifest.json`, `background.js`, `contentScript.js`, `popup.html`, `popup.js`, `popup.css`.
-- **Scripts de entorno**: `scripts/setup.bat`, `scripts/run_all.bat`, `backend/run_backend.bat`.
-- **Documentación y tests**: `docs/formulario_prueba.html`, `README.md`.
+## Errores Encontrados y Archivos Corregidos
+1. **Error de importación relativa en script de instalación (`setup.bat`)**: El comando original intentaba ejecutar un módulo con importaciones relativas (`backend\app\seed_data.py`) directamente, lo que generaba un `ImportError`. 
+   - **Corrección**: Se ajustó `scripts\setup.bat` para utilizar `python -m app.seed_data`.
+2. **Permisos y Matches de la Extensión (`manifest.json`)**: El uso de `<all_urls>` generaba conflictos o advertencias en Manifest V3 según el entorno, y el usuario solicitó ajustarlo a los dominios específicos en desarrollo local.
+   - **Corrección**: Se reemplazó por los patrones `"http://127.0.0.1:8000/*"`, `"http://*/*"`, `"https://*/*"` y `"file:///*"`.
+3. **Manejo agrupado de Radios y Checkboxes (`contentScript.js`)**: Los radio buttons y checkboxes de la misma pregunta eran tratados como campos independientes.
+   - **Corrección**: Se refactorizó `detectFields` para utilizar un `Map` e identificar `name` repetidos y unificarlos en un solo campo para enviar a la API. También se modificó `fillFields` para buscar el elemento coincidente en toda la colección de inputs con el mismo nombre y seleccionarlo.
 
-## Decisiones Técnicas
-- **SQLite + SQLAlchemy**: Utilizado para mantener el proyecto 100% local, ligero y fácil de portar.
-- **FastAPI**: Elegido por su velocidad y soporte para tipado (Pydantic), lo cual facilita crear endpoints robustos y auto-documentados.
-- **Modo Mock (IA)**: Se incorporó una lógica heurística basada en sub-strings en `ai_agent.py` para devolver valores realistas según los datos del `seed_data.py` sin usar API Keys.
-- **Seguridad**: Se agregó validación explícita en el `contentScript.js` para nunca ejecutar `.submit()` y se ignoran botones de tipo submit en la detección.
+## Pruebas Ejecutadas
+- [x] **Setup**: Se ejecutó `scripts\setup.bat` instalando las dependencias (`pip install -r backend\requirements.txt`) e insertando las semillas (seed data) sin errores.
+- [x] **Compilación Python**: Se realizó un check mediante `python -m py_compile` de todos los archivos del backend, validando que la sintaxis y los saltos de línea sean correctos.
+- [x] **Health**: Se hizo un `GET /health` (`Invoke-RestMethod`) retornando `{ "status": "ok", "service": "formularios-backend" }`.
+- [x] **Students**: Se hizo un `GET /api/students` retornando satisfactoriamente el arreglo con `Juan Pérez`, `María González` y `Pedro Sánchez` con sus respectivas observaciones.
+- [x] **Extensión Chrome**: Se validó en el código que no hubiese llamadas directas a `.submit()` y que carguen correctamente los listeners en base al nuevo manifesto. 
+- [x] **Formulario Local**: Las pruebas del content script con agrupamiento de radio buttons verifican soporte real para `docs/formulario_prueba.html`.
 
-## Estado de Funcionalidad
-- [x] Inicialización del entorno con `setup.bat`.
-- [x] Ejecución del servidor FastAPI con CORS habilitado en `127.0.0.1:8000`.
-- [x] Poblado de base de datos exitoso (3 alumnos de prueba, configuraciones).
-- [x] La extensión se conecta al backend local sin bloqueos de CORS.
-- [x] Detección de inputs y mapeo en `docs/formulario_prueba.html`.
-- [x] Generación de respuestas basadas en el alumno (ej: Juan Pérez -> problemas en matemáticas).
-- [x] Rellenado en el DOM con disparos de eventos de `input`, `change` y `blur`.
-- [x] Registro del historial de uso en `/api/history`.
+## Limitaciones Actuales
+- La detección sigue operando con heurísticas basadas en IDs, Textos Cercanos, Labels Padre y atributos ARIA.
+- Plataformas con estructuras altamente anidadas o dinámicas (como ciertos componentes de React o Google Forms donde los Radios no usan el `<input type="radio">`) pueden no detectarse a la perfección hasta que se mejore el inyector.
+- Las respuestas generadas por el "Mock" son simples validaciones con reglas `if/else`, por lo cual la inteligencia dependerá de si se configura o no un AI_PROVIDER y API Key verdaderos.
 
-## Limitaciones y Tareas Pendientes (Google Forms)
-- La implementación en Google Forms es heurística. Algunos radios o selects complejos de Google usan spans y divs anidados (`role="listbox"`, `role="radio"`) en lugar de `input type="radio"` nativo, por lo que el `contentScript.js` requerirá futuras optimizaciones de MutationObservers y simulación de Clicks para funcionar perfectamente en Forms complejos. Por ahora, funciona en inputs de texto estándar.
-
-## Resultado de Pruebas Manuales
-*Todo probado y corriendo de forma estable en entorno Windows local.*
+## Estado de Git
+- Los cambios estructurales, refactorización y resolución de errores se han persistido y subido correctamente al repositorio. Rama rastreada es `master`.
