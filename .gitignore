@@ -8,7 +8,10 @@ dist/
 .DS_Store
 
 *.db
+*.sqlite
+*.sqlite3
 Material para responder/
+**/memoria_maestra_proyecto.md
 *.zip
 *.pdf
 .pytest_cache/

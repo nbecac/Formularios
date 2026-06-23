@@ -157,10 +157,13 @@ def debug_status(db: Session = Depends(get_db)):
         ai_provider = settings.AI_PROVIDER.lower() if settings.AI_PROVIDER else "mock"
         
         has_key = False
+        key_source = "missing"
         if ai_provider == "openai" and settings.OPENAI_API_KEY:
             has_key = True
-        elif ai_provider == "gemini" and settings.GEMINI_API_KEY:
+            key_source = "OPENAI_API_KEY"
+        elif ai_provider == "gemini" and settings.ACTIVE_GEMINI_KEY:
             has_key = True
+            key_source = settings.GEMINI_KEY_SOURCE
             
         return {
             "status": "ok",
@@ -170,6 +173,7 @@ def debug_status(db: Session = Depends(get_db)):
             "ai_provider": ai_provider,
             "ai_model": settings.AI_MODEL,
             "ai_configured": has_key,
+            "key_source": key_source,
             "service": "formularios-backend"
         }
     except Exception as e:

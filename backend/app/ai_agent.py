@@ -119,7 +119,7 @@ def generate_answers(
     has_key = False
     if provider == "openai" and hasattr(settings, "OPENAI_API_KEY") and settings.OPENAI_API_KEY:
         has_key = True
-    elif provider == "gemini" and hasattr(settings, "GEMINI_API_KEY") and settings.GEMINI_API_KEY:
+    elif provider == "gemini" and hasattr(settings, "ACTIVE_GEMINI_KEY") and settings.ACTIVE_GEMINI_KEY:
         has_key = True
         
     if provider in ["openai", "gemini"] and not has_key:
@@ -317,13 +317,13 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
         
         # --- Gemini Integration ---
         ai_provider = settings.AI_PROVIDER.lower() if settings and hasattr(settings, "AI_PROVIDER") else ""
-        if ai_provider == "gemini" and hasattr(settings, "GEMINI_API_KEY") and settings.GEMINI_API_KEY:
+        if ai_provider == "gemini" and hasattr(settings, "ACTIVE_GEMINI_KEY") and settings.ACTIVE_GEMINI_KEY:
             try:
                 import json
                 from google import genai
                 from google.genai import types
                 
-                client = genai.Client(api_key=settings.GEMINI_API_KEY)
+                client = genai.Client(api_key=settings.ACTIVE_GEMINI_KEY)
                 options_text = json.dumps([{"label": o.label, "text": o.text} for o in req.options], ensure_ascii=False)
                 
                 system_prompt = f"""Eres un asistente experto evaluando una pregunta de selección múltiple sobre un proyecto de Base de Datos.
