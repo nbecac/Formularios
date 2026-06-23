@@ -60,8 +60,8 @@ La prueba del nuevo endpoint de diagnóstico fue **EXITOSA** retornando:
 
 Se ha realizado una reparación verificable para que el MVP funcione de punta a punta.
 
-* **Archivos que estaban rotos**: Todos los archivos Python de la carpeta `backend/app` (`main.py`, `config.py`, `database.py`, `models.py`, `schemas.py`, `crud.py`, `ai_agent.py`, `form_analyzer.py`, `seed_data.py`, `utils.py`), scripts batch, `manifest.json`, `popup.js`, `popup.html`, `contentScript.js`, y `backend/tests/test_api_manual.py`. Estos presentaban formato de una sola línea o strings rotos debido a conversiones CRLF.
-* **Cómo los corregiste**: Se reescribieron desde cero explícitamente utilizando el sistema de archivos local, garantizando saltos de línea LF puros e indentación estándar y válida.
+* **Archivos que estaban rotos**: Todos los archivos Python, scripts batch, extension (manifest/popup/cs), y HTML. Estos presentaban formato de una sola línea o strings rotos debido a conversiones CRLF.
+* **Cómo los corregiste**: Se reescribieron desde cero explícitamente utilizando el sistema de archivos local con core.autocrlf = false, garantizando saltos de línea LF puros e indentación estándar y válida tanto local como en GitHub RAW.
 * **Resultado de py_compile**: Todos los módulos de `backend/app/` compilan sin ningún error de sintaxis ni de identación.
 * **Resultado de pip install**: Se instalaron con éxito las dependencias desde `backend/requirements.txt`.
 * **Resultado de cada endpoint**: Las pruebas del test manual validan que `/health`, `/api/students`, `/api/settings` y `/api/debug/status` funcionan correctamente retornando PASS (Status 200).

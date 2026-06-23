@@ -219,7 +219,10 @@ function renderFields(fields, answers = []) {
     list.innerHTML = '';
     
     if (fields.length === 0) {
-        list.innerHTML = '<p class="empty-state">No hay campos detectados.</p>';
+        const p = document.createElement('p');
+        p.className = 'empty-state';
+        p.innerText = 'No hay campos detectados.';
+        list.appendChild(p);
         return;
     }
     

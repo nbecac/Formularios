@@ -36,17 +36,20 @@ function detectFields() {
         }
 
         fieldCounter++;
-        const fieldId = el.id || `auto_field_${fieldCounter}`;
+        const fieldId = el.id || "auto_field_" + fieldCounter;
         if (!el.id) el.setAttribute('data-ai-id', fieldId);
         
-        const selector = el.id ? `#${el.id}` : `[data-ai-id="${fieldId}"]`;
+        const selector = el.id ? "#" + el.id : "[data-ai-id='" + fieldId + "']";
         
         let label = '';
         if (el.id) {
-            const labelEl = document.querySelector(`label[for="${el.id}"]`);
+            const labelEl = document.querySelector("label[for='" + el.id + "']");
             if (labelEl) label = labelEl.innerText;
         }
-        if (!label) label = el.closest('label')?.innerText || '';
+        if (!label) {
+            const closestLabel = el.closest('label');
+            if (closestLabel) label = closestLabel.innerText;
+        }
         if (!label) label = el.getAttribute('aria-label') || '';
         if (!label && el.placeholder) label = el.placeholder;
         
@@ -99,7 +102,7 @@ function fillFields(answers) {
     answers.forEach(ans => {
         if (!ans.answer) return;
         
-        const el = document.querySelector(`#${ans.fieldId}`) || document.querySelector(`[data-ai-id="${ans.fieldId}"]`);
+        const el = document.querySelector("#" + ans.fieldId) || document.querySelector("[data-ai-id='" + ans.fieldId + "']");
         if (!el) return;
         
         const type = el.tagName.toLowerCase() === 'input' ? el.type :
@@ -117,7 +120,7 @@ function fillFields(answers) {
             el.dispatchEvent(new Event('blur', { bubbles: true }));
         } else if (type === 'select' || type === 'select-one') {
             const opts = Array.from(el.options);
-            const match = opts.find(o => (o.value || o.text).toLowerCase() === String(ans.answer).toLowerCase()) || opts[0];
+            const match = opts.find(o => String(o.value || o.text).toLowerCase() === String(ans.answer).toLowerCase()) || opts[0];
             if (match) {
                 el.value = match.value;
                 el.dispatchEvent(new Event('change', { bubbles: true }));
@@ -126,7 +129,7 @@ function fillFields(answers) {
         } else if (type === 'radio' || type === 'checkbox') {
             let targets = [el];
             if (el.name) {
-                targets = Array.from(document.querySelectorAll(`input[name="${el.name}"]`));
+                targets = Array.from(document.querySelectorAll("input[name='" + el.name + "']"));
             }
             
             targets.forEach(t => {
