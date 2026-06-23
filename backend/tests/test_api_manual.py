@@ -3,7 +3,7 @@ import sys
 
 BASE_URL = "http://127.0.0.1:8000"
 
-def test_endpoint(name, path):
+def run_endpoint_test(name, path):
     url = f"{BASE_URL}{path}"
     print(f"Testing {name} ({url})... ", end="")
     try:
@@ -29,7 +29,7 @@ def main():
     
     all_passed = True
     for name, path in endpoints:
-        if not test_endpoint(name, path):
+        if not run_endpoint_test(name, path):
             all_passed = False
             
     if all_passed:
