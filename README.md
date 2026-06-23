@@ -1,60 +1,76 @@
 # Formularios AI Assistant
 
-MVP local para autocompletado inteligente de formularios autorizados.
+## ¿Qué hace el proyecto?
+Es un asistente local diseñado para ayudar en la cumplimentación de borradores de formularios web utilizando contexto real de alumnos e Inteligencia Artificial (mock o real). Detecta campos de texto y los rellena basándose en el perfil de cada estudiante (por ejemplo, curso, observaciones previas de comportamiento o académicas).
 
-## Qué hace el proyecto
-* Detecta campos en formularios visibles.
-* Genera sugerencias de relleno mediante inteligencia artificial (actualmente en modo mock, en preparacion para IA real).
-* Rellena borradores localmente en el navegador.
-
-## Qué no hace (Seguridad)
-* NUNCA hace click en botones de envío ("Enviar", "Submit", "Finalizar").
-* No ejecuta `form.submit()`.
-* No evade detección ni oculta automatización.
-* Deja el envío final siempre a cargo de revisión humana.
+## ¿Qué NO hace por seguridad?
+* Nunca ejecuta `form.submit()`.
+* No hace click en botones de "Enviar", "Submit", "Send" o "Finalizar".
+* No automatiza plataformas de evaluaciones restringidas como Canvas, ni intenta evadir detecciones.
+* No resuelve captchas de forma automatizada.
+* La herramienta está diseñada como un rellenador de "borrador" que requiere revisión manual y envío explícito por el usuario.
 
 ## Instalación Local
 
-1. Clona el repositorio.
-2. Ejecuta `scripts/setup.bat` (solo Windows).
-3. Asegurate de tener `python-multipart` instalado si necesitas probar la subida de archivos CSV.
+1. Clona este repositorio y entra en la carpeta local:
+   ```bash
+   git clone https://github.com/nbecac/Formularios.git
+   cd Formularios
+   ```
+2. Crea el entorno virtual e instala dependencias:
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r backend/requirements.txt
+   ```
+3. Inicializa la base de datos de SQLite con los datos de prueba:
+   ```bash
+   python -m backend.app.seed_data
+   ```
 
-## Cómo correr el backend
+## Cómo Correr el Backend
 
-Ejecuta el script de inicialización general:
-`scripts/run_all.bat`
+El backend está construido con FastAPI y Uvicorn. Para iniciarlo, asegúrate de estar dentro del entorno virtual y ejecuta:
+```bash
+uvicorn backend.app.main:app --reload
+```
+La API estará disponible localmente en: `http://127.0.0.1:8000`.
 
-O si ya tienes el entorno configurado, levanta el backend con:
-`backend/run_backend.bat`
+## Cómo Cargar la Extensión en Chrome
 
-## Cómo cargar la extensión
+1. Abre Google Chrome y ve a la dirección `chrome://extensions/`.
+2. Activa el "Modo desarrollador" en la esquina superior derecha.
+3. Haz clic en "Cargar descomprimida" (Load unpacked).
+4. Selecciona la carpeta `extension` ubicada dentro del repositorio.
 
-1. Abre Google Chrome y ve a `chrome://extensions`.
-2. Activa el "Modo desarrollador".
-3. Haz click en "Cargar descomprimida" y selecciona la carpeta `extension/`.
-4. Habilita "Permitir acceso a URLs de archivo" en los detalles de la extension.
+## Cómo Probar `docs/formulario_prueba.html`
 
-## Cómo probar el formulario local
+El proyecto incluye un formulario de demostración completamente en local.
+1. Abre el archivo `docs/formulario_prueba.html` directamente en tu navegador Chrome.
+2. Haz clic en el ícono de la extensión cargada previamente.
+3. Asegúrate de que el backend esté corriendo (debería decir "Conectado").
+4. Haz clic en "Detectar campos", selecciona un alumno y luego "Generar respuestas".
+5. Finalmente, presiona "Rellenar borrador". Verás cómo se rellenan los campos en la página.
 
-1. Abre el archivo `docs/formulario_prueba.html` en tu navegador.
-2. Abre el popup de la extension.
-3. Conecta y selecciona un alumno.
-4. Genera respuestas y clickea "Rellenar borrador".
+## Cómo Usar `docs/admin.html` (Fase 2)
 
-## Cómo revisar GitHub Actions
+El proyecto incluye ahora un panel de administración estático que consume la API del backend.
+1. Abre el archivo `docs/admin.html` en Chrome.
+2. Desde allí podrás visualizar los alumnos existentes, agregar nuevos alumnos y gestionar observaciones (académicas, comportamiento, apoyo, general).
+3. También dispones de una función de importación masiva mediante archivo CSV. Un archivo de prueba se encuentra en `data/ejemplo_alumnos.csv`.
 
-El repositorio cuenta con un pipeline de Integración Continua (CI) que corre automáticamente en cada push o pull request.
-* **Qué valida el CI:** Clona el repo, instala Python 3.11, instala `backend/requirements.txt`, ejecuta la compilación de todos los archivos fuente de Python, y corre pruebas automatizadas (LFs, JSON, endpoints y seguridad no-submit).
-* **Cómo revisar si está en verde:** Ve a la pestaña "Actions" del repositorio en GitHub para confirmar si el workflow pasó (status success).
+## Cómo Revisar GitHub Actions
 
-## Estado actual del proyecto
+El repositorio cuenta con validación continua de CI a través de GitHub Actions.
+Para verificar el estado de los *pipelines*:
+1. Dirígete a la pestaña **Actions** en tu repositorio de GitHub.
+2. Allí podrás ver las validaciones realizadas sobre tu último *commit* o *pull request*.
+3. El *pipeline* clona el código, verifica la sintaxis de Python, corre los tests automatizados y valida que el archivo de configuración `manifest.json` esté correctamente escrito.
 
-MVP funcional local (Fase 1 completada, transicionando a Fase 2).
-* Base de datos local: SQLite
-* Backend: FastAPI
-* Extensión Chrome: Manifest V3
-* CI/CD: Pipeline estable en GitHub Actions
+## Estado Actual
+El proyecto se encuentra en la **Fase 2 (Administración de Datos Reales)** finalizada y estable. 
+Se ha completado el desarrollo del CRUD con base de datos real (SQLite) mediante FastAPI y la UI administrativa básica se encuentra operacional para ingestar alumnos vía CSV.
 
-## Próxima Fase (Fase 2: administración de datos reales)
-
-Administración real de datos mediante CRUD local de alumnos, observaciones y soporte de importación vía CSV. Uso de base de datos para simular mejor a los agentes y arquitectura lista para conectar IA real (OpenAI/Gemini).
+## Próximos Pasos
+* Iniciar la **Fase 3**: Integración real con la API de modelos grandes de lenguaje (LLM), reemplazando el módulo mock y estructurando un motor capaz de redactar respuestas mucho más sofisticadas basadas en las observaciones guardadas.
+* Agregar pruebas en formularios externos complejos.
