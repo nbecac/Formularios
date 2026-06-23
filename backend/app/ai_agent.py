@@ -1,78 +1,105 @@
-﻿from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from .schemas import FormAnalyzeResponseField, GeneratedAnswer
 from .models import Student
 
 def _get_observation_by_category(student: Student, categories: List[str]) -> str:
+    """
+    Busca de manera case-insensitive si el alumno posee una observación que calce 
+    dentro de la lista de categorías indicadas.
+    Retorna el contenido de la primera que encuentre, o string vacío si no halla nada.
+    """
     for cat in categories:
         for obs in student.observations:
             if obs.category and obs.category.lower() == cat.lower():
                 return obs.content
     return ""
 
-def _mock_generate(field: FormAnalyzeResponseField, student: Student) -> tuple[str, str]:
+def _mock_generate(field: FormAnalyzeResponseField, student: Student) -> Tuple[str, str]:
+    """
+    Motor Mock de IA que mapea datos reales del alumno contra el campo detectado.
+    Utiliza el nombre, el curso, nivel y las observaciones específicas por categoría.
+    Retorna (respuesta_sugerida, explicacion_de_la_fuente).
+    """
     label_lower = field.normalizedLabel.lower()
     
+    # Mapeo directo de atributos básicos del alumno
     if "nombre" in label_lower or "name" in label_lower:
-        return student.name, "Mapeo directo del nombre del alumno."
+        return student.name, "Mapeo directo del nombre completo del alumno."
+        
     elif "curso" in label_lower or "grado" in label_lower or "grade" in label_lower:
-        return student.course, "Mapeo directo del curso del alumno."
+        return student.course, "Mapeo directo del curso o grado registrado del alumno."
+        
     elif "nivel" in label_lower or "level" in label_lower:
-        return student.level or "", "Mapeo directo del nivel del alumno."
+        return student.level or "", "Mapeo directo del nivel educativo del alumno."
     
-    # Heuristicas por categoria
-    if "apoyo" in label_lower or "support" in label_lower:
+    # Heurísticas cruzadas con observaciones de categoría: Apoyo
+    if "apoyo" in label_lower or "support" in label_lower or "nee" in label_lower:
         obs = _get_observation_by_category(student, ["apoyo", "general"])
+        
+        # Si es un campo de opciones cerrado (checkbox, select)
         if field.options:
             opts_lower = [o.lower() for o in field.options]
             needs_support = bool(obs) or (student.notes and ("apoyo" in student.notes.lower() or "dificultad" in student.notes.lower()))
             if "sí" in opts_lower or "si" in opts_lower or "yes" in opts_lower:
                 ans = "Sí" if needs_support else "No"
-                return ans, "Deducido a partir de observaciones de apoyo o notas."
+                return ans, "Deducido a partir de existencia o falta de observaciones de apoyo."
+                
+        # Si es texto abierto y hay observación
         if obs:
-            return obs, "Basado en observacion de apoyo."
-        return "No requiere apoyo adicional.", "Respuesta por defecto ante falta de datos de apoyo."
+            return obs, "Respuesta basada explícitamente en observación de apoyo del alumno."
+            
+        return "No requiere apoyo adicional.", "Respuesta mock por defecto ante la falta de registros de apoyo."
         
-    elif "académico" in label_lower or "academico" in label_lower or "desempeño" in label_lower:
+    # Heurísticas cruzadas con observaciones de categoría: Académico
+    elif "académico" in label_lower or "academico" in label_lower or "desempeño" in label_lower or "rendimiento" in label_lower:
         obs = _get_observation_by_category(student, ["academico", "académico"])
         if obs:
-            return obs, "Basado en observacion academica."
+            return obs, "Respuesta basada en el registro de la observación académica."
             
+    # Heurísticas cruzadas con observaciones de categoría: Participación
     elif "participación" in label_lower or "participacion" in label_lower:
         obs = _get_observation_by_category(student, ["participacion", "participación"])
         if obs:
-            return obs, "Basado en observacion de participacion."
+            return obs, "Respuesta basada en la observación de participación."
             
+    # Heurísticas cruzadas con observaciones de categoría: Comportamiento
     elif "conducta" in label_lower or "comportamiento" in label_lower:
         obs = _get_observation_by_category(student, ["comportamiento", "conducta"])
         if obs:
-            return obs, "Basado en observacion de comportamiento."
+            return obs, "Respuesta basada en registros sobre el comportamiento del estudiante."
             
+    # Heurísticas cruzadas con observaciones de categoría: Asistencia
     elif "asistencia" in label_lower:
         obs = _get_observation_by_category(student, ["asistencia"])
         if obs:
-            return obs, "Basado en observacion de asistencia."
+            return obs, "Respuesta basada en la observación de asistencia."
             
+    # Casos genéricos abiertos
     elif "fortalezas" in label_lower:
-        return "Sin registrar", "Respuesta generica editable."
+        return "Sin registro de fortalezas detalladas.", "Respuesta genérica editable (mock)."
+        
     elif "áreas a mejorar" in label_lower or "areas a mejorar" in label_lower:
-        return "Sin registrar", "Respuesta generica editable."
+        return "Sin registro de áreas de mejora.", "Respuesta genérica editable (mock)."
 
-    # General / Comentarios finales
+    # Análisis general o comentarios
     if "observación" in label_lower or "comentario" in label_lower or "general" in label_lower:
         obs = _get_observation_by_category(student, ["general"])
         if obs:
-            return obs, "Basado en observacion general."
+            return obs, "Basado en la observación general ingresada al sistema."
         if student.notes:
-            return student.notes, "Basado en las notas del alumno."
-        return "Sin comentarios adicionales.", "Respuesta generica editable."
+            return student.notes, "Basado en las notas adicionales del perfil del alumno."
+            
+        return "Sin comentarios adicionales a reportar.", "Texto genérico para campo general."
         
+    # Filtrado de campos no rastreados en este modelo de negocio
     elif "email" in label_lower or "correo" in label_lower:
-        return "", "Campo ignorado por ser dato de contacto no almacenado."
+        return "", "Campo ignorado intencionalmente por ser un dato de contacto no almacenado en la BD local."
         
-    elif field.options:
-        return field.options[0], "Primera opcion por defecto."
+    # Si hay opciones pero no entendimos el label, intentamos devolver la primera para no dejar en blanco
+    elif field.options and len(field.options) > 0:
+        return field.options[0], "No se detectó el contexto; se sugiere la primera opción por defecto."
         
-    return "", "No se encontro contexto para este campo."
+    return "", "No se encontró ningún contexto en los datos del alumno aplicable a este campo."
 
 def generate_answers(
     fields: List[FormAnalyzeResponseField], 
@@ -80,41 +107,47 @@ def generate_answers(
     page_context: Dict[str, str], 
     settings: Any
 ) -> List[GeneratedAnswer]:
+    """
+    Función principal de entrada para la orquestación de IA.
+    Evalúa si la clave de OpenAI / Gemini está presente.
+    Si no, o si hay un error, decae hacia el motor _mock_generate construido arriba.
+    """
     answers = []
-    provider = settings.AI_PROVIDER.lower()
+    provider = settings.AI_PROVIDER.lower() if settings and hasattr(settings, "AI_PROVIDER") else "mock"
     
-    if provider in ["openai", "gemini"]:
-        has_key = False
-        if provider == "openai" and settings.OPENAI_API_KEY:
-            has_key = True
-        elif provider == "gemini" and settings.GEMINI_API_KEY:
-            has_key = True
+    # Determinar si podemos usar IA real
+    has_key = False
+    if provider == "openai" and hasattr(settings, "OPENAI_API_KEY") and settings.OPENAI_API_KEY:
+        has_key = True
+    elif provider == "gemini" and hasattr(settings, "GEMINI_API_KEY") and settings.GEMINI_API_KEY:
+        has_key = True
+        
+    if provider in ["openai", "gemini"] and not has_key:
+        error_explanation = f"Motor {provider.upper()} seleccionado pero API key ausente. Usando mock_fallback."
+        
+        for field in fields:
+            ans_text, mock_exp = _mock_generate(field, student)
             
-        if not has_key:
-            # Fallback to mock with clear message
-            error_explanation = "No hay API key configurada. Usando modo mock."
-            for field in fields:
-                ans_text, mock_exp = _mock_generate(field, student)
-                if field.options and ans_text not in field.options:
-                    ans_text = next((o for o in field.options if ans_text.lower() in o.lower()), ans_text)
-                    
-                answers.append(
-                    GeneratedAnswer(
-                        fieldId=field.fieldId,
-                        answer=ans_text,
-                        confidence=0.5,
-                        source="mock_fallback",
-                        explanation=f"{error_explanation} {mock_exp}"
-                    )
+            # Forzamiento simple de opciones
+            if field.options and ans_text not in field.options:
+                ans_text = next((o for o in field.options if ans_text.lower() in o.lower()), ans_text)
+                
+            answers.append(
+                GeneratedAnswer(
+                    fieldId=field.fieldId,
+                    answer=ans_text,
+                    confidence=0.5 if ans_text else 0.1,
+                    source="mock_fallback",
+                    explanation=f"{error_explanation} {mock_exp}"
                 )
-            return answers
-        else:
-            # Placeholder for future implementation
-            pass
+            )
+        return answers
 
-    # Default mock implementation
+    # Iteración Mock normal
     for field in fields:
         ans_text, explanation = _mock_generate(field, student)
+        
+        # Intentar alinear la respuesta con alguna de las opciones existentes si es cerrada
         if field.options and ans_text not in field.options:
             ans_text = next((o for o in field.options if ans_text.lower() in o.lower()), ans_text)
 
@@ -122,7 +155,7 @@ def generate_answers(
             GeneratedAnswer(
                 fieldId=field.fieldId,
                 answer=ans_text,
-                confidence=0.8 if ans_text else 0.3,
+                confidence=0.85 if ans_text else 0.3,
                 source="mock_ai",
                 explanation=explanation
             )

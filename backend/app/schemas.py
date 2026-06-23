@@ -1,49 +1,80 @@
-﻿from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 from datetime import datetime
 
 class ObservationBase(BaseModel):
-    category: str
-    content: str
+    """
+    Modelo base para Observaciones de estudiantes.
+    Categorías soportadas: 'académico', 'comportamiento', 'apoyo', 'general'.
+    """
+    category: str = Field(..., description="Categoría de la observación")
+    content: str = Field(..., description="Texto libre con el detalle")
 
 class ObservationCreate(ObservationBase):
+    """
+    Datos para crear una nueva observación.
+    """
     pass
 
 class ObservationUpdate(BaseModel):
+    """
+    Datos para actualizar una observación existente.
+    """
     category: Optional[str] = None
     content: Optional[str] = None
 
 class ObservationResponse(ObservationBase):
+    """
+    Modelo de respuesta de Observaciones.
+    """
     id: int
     created_at: datetime
     class Config:
         from_attributes = True
 
 class StudentBase(BaseModel):
-    name: str
-    course: str
-    level: str
-    notes: Optional[str] = None
+    """
+    Datos base del alumno.
+    """
+    name: str = Field(..., description="Nombre completo")
+    course: str = Field(..., description="Curso actual, ej: 4to Básico")
+    level: str = Field(..., description="Nivel educativo, ej: Básica")
+    notes: Optional[str] = Field(None, description="Notas breves o descriptivas")
 
 class StudentCreate(StudentBase):
+    """
+    Datos para crear un alumno.
+    """
     pass
 
 class StudentUpdate(BaseModel):
+    """
+    Datos para actualizar un alumno de forma parcial.
+    """
     name: Optional[str] = None
     course: Optional[str] = None
     level: Optional[str] = None
     notes: Optional[str] = None
 
 class StudentResponse(StudentBase):
+    """
+    Respuesta básica de alumno, sin cargar observaciones.
+    """
     id: int
     created_at: datetime
     class Config:
         from_attributes = True
 
 class StudentDetail(StudentResponse):
+    """
+    Detalle completo de alumno, incluyendo sus observaciones en lista.
+    """
     observations: List[ObservationResponse] = []
 
 class FormField(BaseModel):
+    """
+    Estructura de campo reportada por la extensión (contentScript).
+    """
     fieldId: str
     type: str
     label: str
@@ -77,6 +108,9 @@ class FormGenerateRequest(BaseModel):
     context: Optional[str] = None
 
 class GeneratedAnswer(BaseModel):
+    """
+    Estructura de la sugerencia de IA a devolver a la extensión.
+    """
     fieldId: str
     answer: Any
     confidence: float

@@ -2,34 +2,39 @@ from typing import List
 from .schemas import FormField, FormAnalyzeResponseField
 
 def normalize_fields(fields: List[FormField]) -> List[FormAnalyzeResponseField]:
+    """
+    Recibe la lista de campos crudos extraídos por contentScript.js desde el DOM del navegador.
+    Limpia, normaliza e identifica el propósito probable de cada campo (label vs name).
+    Devuelve la estructura final que consumirá la IA para generar las respuestas.
+    """
     normalized = []
     
     for f in fields:
-        label = f.label or f.ariaLabel or f.placeholder or f.nearbyText or f.fieldId
-        label = label.strip()
+        # Extraer el mejor label disponible
+        raw_label = f.label or f.ariaLabel or f.placeholder or f.nearbyText or f.fieldId
         
-        type_norm = f.type.lower()
-        if type_norm in ['text', 'textarea', 'email', 'number', 'date', 'contenteditable']:
-            type_norm = 'text'
-        elif type_norm in ['select-one', 'select']:
-            type_norm = 'select'
-        elif type_norm in ['radio', 'checkbox']:
-            type_norm = 'choice'
-            
+        # Limpieza básica
+        clean_label = str(raw_label).strip()
+        
+        # Opciones si es un select o radio
+        opts = f.options if f.options else []
+        
+        # Calcular confianza básica del parseo
+        confidence = 0.9 if f.label else (0.7 if f.ariaLabel else 0.5)
+        
+        # Advertencias
         warnings = []
-        if not label or label == f.fieldId:
-            warnings.append("Label no detectado correctamente")
+        if not clean_label:
+            warnings.append("No se encontró un label descriptivo claro.")
             
-        normalized.append(
-            FormAnalyzeResponseField(
-                fieldId=f.fieldId,
-                normalizedLabel=label,
-                normalizedType=type_norm,
-                options=f.options or [],
-                required=f.required,
-                confidence=0.9 if not warnings else 0.5,
-                warnings=warnings
-            )
-        )
+        normalized.append(FormAnalyzeResponseField(
+            fieldId=f.fieldId,
+            normalizedLabel=clean_label,
+            normalizedType=f.type,
+            options=opts,
+            required=f.required,
+            confidence=confidence,
+            warnings=warnings
+        ))
         
     return normalized
