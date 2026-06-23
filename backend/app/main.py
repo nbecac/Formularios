@@ -138,7 +138,13 @@ def get_settings(db: Session = Depends(get_db)):
     Obtener configuraciones del sistema guardadas en BD.
     """
     db_settings = crud.get_settings(db)
-    return {s.key: s.value for s in db_settings}
+    result = {s.key: s.value for s in db_settings}
+    
+    # Asegurar compatibilidad para frontend/tests que buscan "ai_provider" (minúsculas)
+    if "AI_PROVIDER" in result:
+        result["ai_provider"] = result["AI_PROVIDER"]
+        
+    return result
 
 @app.get("/api/debug/status")
 def debug_status(db: Session = Depends(get_db)):
