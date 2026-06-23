@@ -141,7 +141,31 @@ function extractMultipleChoiceQuestion() {
     let selectionMode = 'single';
     
     // Buscar contenedores comunes de preguntas
-    const questionContainer = document.querySelector('.question:not(.answered_question), .display_question, .multiple-choice-question, fieldset');
+    const containers = document.querySelectorAll('.question:not(.answered_question), .display_question, .multiple-choice-question, fieldset');
+    
+    let questionContainer = null;
+    let minDistanceToCenter = Infinity;
+    const viewportCenterY = window.innerHeight / 2;
+    
+    containers.forEach(container => {
+        const rect = container.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+            // Check if it's at least partially in the viewport
+            if (rect.top < window.innerHeight && rect.bottom > 0) {
+                const containerCenterY = rect.top + (rect.height / 2);
+                const distance = Math.abs(viewportCenterY - containerCenterY);
+                if (distance < minDistanceToCenter) {
+                    minDistanceToCenter = distance;
+                    questionContainer = container;
+                }
+            }
+        }
+    });
+    
+    // Fallback al primero si nada est visible (ej. scroll extrao)
+    if (!questionContainer && containers.length > 0) {
+        questionContainer = containers[0];
+    }
     
     if (questionContainer) {
         const titleEl = questionContainer.querySelector('.question_text, legend, h3, h2, .title');
