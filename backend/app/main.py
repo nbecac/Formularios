@@ -154,14 +154,22 @@ def debug_status(db: Session = Depends(get_db)):
     try:
         students_count = db.query(models.Student).count()
         settings_count = db.query(models.Setting).count()
-        ai_provider = settings.AI_PROVIDER
+        ai_provider = settings.AI_PROVIDER.lower() if settings.AI_PROVIDER else "mock"
         
+        has_key = False
+        if ai_provider == "openai" and settings.OPENAI_API_KEY:
+            has_key = True
+        elif ai_provider == "gemini" and settings.GEMINI_API_KEY:
+            has_key = True
+            
         return {
             "status": "ok",
             "database": "connected",
             "students_count": students_count,
             "settings_count": settings_count,
             "ai_provider": ai_provider,
+            "ai_model": settings.AI_MODEL,
+            "ai_configured": has_key,
             "service": "formularios-backend"
         }
     except Exception as e:
@@ -171,6 +179,54 @@ def debug_status(db: Session = Depends(get_db)):
             "error": str(e),
             "service": "formularios-backend"
         }
+
+@app.post("/api/ai/test", response_model=schemas.AITestResponse)
+def test_ai(req: schemas.AITestRequest, db: Session = Depends(get_db)):
+    """
+    Endpoint para probar la IA sin rellenar un formulario.
+    """
+    provider = req.provider or settings.AI_PROVIDER.lower() or "mock"
+    
+    # Crear un campo dummy
+    dummy_field = schemas.FormAnalyzeResponseField(
+        fieldId="test_field",
+        normalizedLabel=req.text or "Observación general",
+        normalizedType="textarea",
+        options=[],
+        required=False,
+        confidence=1.0,
+        warnings=[]
+    )
+    
+    student = None
+    if req.student_id:
+        student = crud.get_student(db, req.student_id)
+        
+    if not student:
+        student = models.Student(name="Alumno de Prueba", course="Test", level="Test", notes="Test notes")
+        
+    page_context = {"url": "test://localhost", "title": "Test Form"}
+    
+    # Usar el config genérico o forzar el provider
+    class TempSettings:
+        AI_PROVIDER = provider
+        AI_MODEL = settings.AI_MODEL
+        OPENAI_API_KEY = settings.OPENAI_API_KEY
+        GEMINI_API_KEY = settings.GEMINI_API_KEY
+
+    temp_settings = TempSettings()
+    
+    try:
+        answers = ai_agent.generate_answers([dummy_field], student, page_context, temp_settings)
+        if not answers:
+            return schemas.AITestResponse(provider=provider, answer="", fallback=True, error="Empty response")
+            
+        ans = answers[0]
+        fallback = ans.source == "mock_fallback" or ans.source == "mock_ai"
+        return schemas.AITestResponse(provider=provider, answer=ans.answer, fallback=fallback)
+    except Exception as e:
+        return schemas.AITestResponse(provider=provider, answer="", fallback=True, error=str(e))
+
 
 @app.post("/api/forms/analyze", response_model=schemas.FormAnalyzeResponse)
 def analyze_form(req: schemas.FormAnalyzeRequest):
@@ -205,3 +261,35 @@ def create_history(req: schemas.HistoryCreate, db: Session = Depends(get_db)):
     """
     history = crud.create_history(db, req)
     return {"status": "success", "id": history.id}
+
+@app.post("/api/knowledge/import-folder", response_model=schemas.KnowledgeImportSummary)
+def import_knowledge(db: Session = Depends(get_db)):
+    """
+    Importar la carpeta 'Material para responder' al conocimiento local.
+    """
+    # Usar ruta relativa esperada
+    base_folder = "Material para responder"
+    summary = crud.import_knowledge_folder(db, base_folder)
+    return summary
+
+@app.post("/api/knowledge/search")
+def search_knowledge(req: schemas.KnowledgeSearchRequest, db: Session = Depends(get_db)):
+    """
+    Buscar en los chunks de conocimiento importados.
+    """
+    chunks = crud.search_knowledge(db, req.query, req.max_results, req.preferred_sections)
+    return [
+        {
+            "id": c.id,
+            "section": c.section,
+            "source": c.source.title,
+            "content": c.content
+        } for c in chunks
+    ]
+
+@app.post("/api/ai/canvas", response_model=schemas.CanvasQuestionResponse)
+def handle_canvas_question(req: schemas.CanvasQuestionRequest, db: Session = Depends(get_db)):
+    """
+    Endpoint dedicado para resolver preguntas de Canvas usando el material del curso.
+    """
+    return ai_agent.answer_project_question(req, db, settings)

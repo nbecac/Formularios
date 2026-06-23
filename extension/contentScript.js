@@ -144,3 +144,47 @@ function fillFields(answers) {
         }
     });
 }
+
+function detectCanvasQuestion() {
+    let qText = '';
+    let options = [];
+    let qType = 'unknown';
+    
+    const questionContainer = document.querySelector('.question:not(.answered_question), .display_question');
+    if (questionContainer) {
+        const titleEl = questionContainer.querySelector('.question_text');
+        if (titleEl) qText = titleEl.innerText;
+        
+        const inputs = questionContainer.querySelectorAll('input[type="radio"], input[type="checkbox"]');
+        if (inputs.length > 0) {
+            qType = inputs[0].type;
+            inputs.forEach(i => {
+                const label = questionContainer.querySelector(`label[for="${i.id}"]`);
+                if (label) options.push(label.innerText);
+            });
+        } else if (questionContainer.querySelector('textarea, input[type="text"]')) {
+            qType = 'text';
+        }
+    } else {
+        const activeField = document.activeElement;
+        if (activeField && (activeField.tagName === 'INPUT' || activeField.tagName === 'TEXTAREA')) {
+            const labelEl = document.querySelector(`label[for="${activeField.id}"]`);
+            if (labelEl) qText = labelEl.innerText;
+            else qText = activeField.placeholder || activeField.getAttribute('aria-label') || '';
+            qType = activeField.type || activeField.tagName.toLowerCase();
+        }
+    }
+    
+    return {
+        question: qText.trim().substring(0, 500),
+        options: options,
+        question_type: qType
+    };
+}
+
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "detect_canvas_question") {
+        sendResponse(detectCanvasQuestion());
+    }
+    return true;
+});

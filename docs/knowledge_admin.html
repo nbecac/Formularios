@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Knowledge Admin - Formularios</title>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; background: #f9fafb; color: #111827; }
+        .card { background: #fff; padding: 1.5rem; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 2rem; }
+        button { background: #2563eb; color: #fff; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+        input, textarea { width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid #ccc; border-radius: 4px; }
+        pre { background: #f3f4f6; padding: 1rem; border-radius: 4px; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Administrador de Conocimiento</h1>
+
+    <div class="card">
+        <h2>Importar Material</h2>
+        <p>Asegúrate de que la carpeta <code>Material para responder</code> exista en la raíz del proyecto.</p>
+        <button onclick="importMaterial()">Importar desde Carpeta Local</button>
+        <pre id="import-res"></pre>
+    </div>
+
+    <div class="card">
+        <h2>Probar Pregunta (Canvas)</h2>
+        <input type="text" id="q-text" placeholder="Ej: ¿Cómo se hizo el diseño ER en la entrega 2?">
+        <button onclick="testQuestion()">Preguntar</button>
+        <pre id="q-res"></pre>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+
+        async function importMaterial() {
+            document.getElementById('import-res').innerText = 'Importando... esto puede tomar unos segundos.';
+            try {
+                const res = await fetch(`${API_BASE}/knowledge/import-folder`, { method: 'POST' });
+                const data = await res.json();
+                document.getElementById('import-res').innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById('import-res').innerText = `Error: ${e.message}`;
+            }
+        }
+
+        async function testQuestion() {
+            const q = document.getElementById('q-text').value;
+            if (!q) return;
+            document.getElementById('q-res').innerText = 'Pensando...';
+            
+            try {
+                const res = await fetch(`${API_BASE}/ai/canvas`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ question: q })
+                });
+                const data = await res.json();
+                document.getElementById('q-res').innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                document.getElementById('q-res').innerText = `Error: ${e.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

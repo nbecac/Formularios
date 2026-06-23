@@ -267,3 +267,91 @@ function renderFields(fields, answers = []) {
 }
 
 checkHealth();
+
+// ----- CANVAS MODE LOGIC -----
+const btnDetectCanvas = document.getElementById('btnDetectCanvas');
+const btnGenerateCanvas = document.getElementById('btnGenerateCanvas');
+const btnFillCanvas = document.getElementById('btnFillCanvas');
+const canvasResponseArea = document.getElementById('canvasResponseArea');
+const canvasAnswer = document.getElementById('canvasAnswer');
+const canvasSources = document.getElementById('canvasSources');
+
+let currentCanvasQuestion = null;
+let currentCanvasResponse = null;
+
+if (btnDetectCanvas) {
+    btnDetectCanvas.addEventListener('click', async () => {
+        logMsg("Detectando pregunta de Canvas...");
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        chrome.tabs.sendMessage(tab.id, { action: "detect_canvas_question" }, response => {
+            if (chrome.runtime.lastError) {
+                logMsg("Error en tab: " + chrome.runtime.lastError.message);
+                return;
+            }
+            if (response && response.question) {
+                currentCanvasQuestion = response;
+                logMsg("Pregunta detectada: " + response.question.substring(0, 50) + "...");
+                btnGenerateCanvas.disabled = false;
+            } else {
+                logMsg("No se detectó pregunta clara.");
+            }
+        });
+    });
+}
+
+if (btnGenerateCanvas) {
+    btnGenerateCanvas.addEventListener('click', async () => {
+        if (!currentCanvasQuestion) return;
+        logMsg("Generando respuesta con material autorizado...");
+        btnGenerateCanvas.disabled = true;
+        
+        try {
+            const res = await fetch(API_BASE + '/ai/canvas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(currentCanvasQuestion)
+            });
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            
+            const data = await res.json();
+            currentCanvasResponse = data;
+            
+            canvasResponseArea.style.display = 'block';
+            canvasAnswer.innerText = data.answer;
+            
+            if (data.sources && data.sources.length > 0) {
+                canvasSources.innerHTML = "<strong>Fuentes:</strong><br>" + 
+                    data.sources.map(s => - [] ).join("<br>");
+            } else {
+                canvasSources.innerHTML = "<em>Sin fuentes (Confianza: " + data.confidence + ")</em>";
+            }
+            
+            btnFillCanvas.disabled = false;
+            logMsg("Sugerencia generada.");
+        } catch (e) {
+            logMsg("Error al generar: " + e.message);
+        } finally {
+            btnGenerateCanvas.disabled = false;
+        }
+    });
+}
+
+if (btnFillCanvas) {
+    btnFillCanvas.addEventListener('click', async () => {
+        if (!currentCanvasResponse) return;
+        logMsg("Rellenando borrador...");
+        
+        const answers = [{
+            fieldId: "unknown", // No tenemos fieldId directo del scraper de canvas, pero podemos usar fallback logico
+            answer: currentCanvasResponse.answer
+        }];
+        
+        // En una implementación real más robusta, el content script detecta el id activo. 
+        // Para simplificar, mandaremos fill_fields y confiaremos en document.activeElement
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        chrome.tabs.sendMessage(tab.id, { action: "fill_fields", answers: answers }, response => {
+            logMsg("Enviado al content script. Por favor revisa y envía manualmente.");
+        });
+    });
+}

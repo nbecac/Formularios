@@ -57,3 +57,37 @@ class History(Base):
     detected_fields_json = Column(Text)
     generated_answers_json = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+class KnowledgeSource(Base):
+    """
+    Fuentes de conocimiento importadas (syllabus, E1, E2, E3).
+    """
+    __tablename__ = "knowledge_sources"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    source_type = Column(String) # ej. "txt", "md"
+    folder = Column(String, index=True) # "syllabus", "E1", "E2", "E3"
+    filename = Column(String)
+    description = Column(Text, nullable=True)
+    priority = Column(Integer, default=1)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    chunks = relationship("KnowledgeChunk", back_populates="source", cascade="all, delete-orphan")
+
+class KnowledgeChunk(Base):
+    """
+    Fragmentos de texto de las fuentes para búsqueda.
+    """
+    __tablename__ = "knowledge_chunks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    source_id = Column(Integer, ForeignKey("knowledge_sources.id"), index=True)
+    section = Column(String, index=True)
+    topic = Column(String, nullable=True)
+    content = Column(Text)
+    page_number = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    source = relationship("KnowledgeSource", back_populates="chunks")
+

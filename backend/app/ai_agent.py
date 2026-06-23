@@ -162,3 +162,86 @@ def generate_answers(
         )
             
     return answers
+
+def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
+    from . import crud, schemas
+    
+    query = req.question
+    preferred = ["E1", "E2", "E3", "syllabus"]
+    chunks = crud.search_knowledge(db, query, max_results=5, preferred_sections=preferred)
+    
+    sources = []
+    evidence_text = ""
+    for c in chunks:
+        snippet = c.content[:300] + "..." if len(c.content) > 300 else c.content
+        sources.append(schemas.KnowledgeSourceSnippet(
+            section=c.section,
+            title=c.source.title,
+            filename=c.source.filename,
+            snippet=snippet
+        ))
+        evidence_text += f"\n--- [{c.section}] {c.source.title} ---\n{c.content}\n"
+
+    if not chunks:
+        return schemas.CanvasQuestionResponse(
+            answer="No se encontró evidencia suficiente en el material autorizado (E1/E2/E3/syllabus) para responder a esta pregunta con certeza.",
+            confidence=0.1,
+            sources=[],
+            explanation="Búsqueda sin resultados relevantes en el material local.",
+            mode="knowledge_only",
+            needs_review=True
+        )
+
+    provider = settings.AI_PROVIDER.lower() if settings and hasattr(settings, "AI_PROVIDER") else "mock"
+    has_key = False
+    if provider == "openai" and hasattr(settings, "OPENAI_API_KEY") and settings.OPENAI_API_KEY:
+        has_key = True
+        
+    if provider == "openai" and has_key:
+        import openai
+        client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        
+        system_prompt = f"""
+Eres un asistente de evaluación enfocado estrictamente en un proyecto de Base de Datos.
+REGLAS ESTRICTAS:
+- Responde a la pregunta basándote ÚNICA y EXCLUSIVAMENTE en el material proporcionado abajo.
+- Si la pregunta pide "cómo se hizo", "qué se respondió", o "cómo evolucionó", debes ser fiel a lo que dice el material de las entregas (E1, E2, E3). NO inventes soluciones teóricas ideales si la entrega hizo otra cosa.
+- Si la pregunta pide "cómo lo cambiarías" o "mejorarías", indica primero qué se hizo realmente y luego sugiere la mejora basándote en la teoría.
+- Si no hay suficiente evidencia, indícalo claramente.
+- Nunca sugieras que enviarás la evaluación. El usuario debe revisar.
+
+Evidencia extraída del material del curso:
+{evidence_text}
+"""
+        user_prompt = f"Pregunta: {req.question}\nOpciones (si aplica): {req.options}\nTipo: {req.question_type}"
+        
+        try:
+            response = client.chat.completions.create(
+                model=settings.AI_MODEL or "gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.1
+            )
+            ans_text = response.choices[0].message.content
+            return schemas.CanvasQuestionResponse(
+                answer=ans_text,
+                confidence=0.85,
+                sources=sources,
+                explanation="Respuesta generada vía LLM basada exclusivamente en el material recuperado.",
+                mode="knowledge_only",
+                needs_review=True
+            )
+        except Exception as e:
+            pass
+
+    ans_text = f"Basado en el material encontrado (principalmente '{sources[0].title}' de la sección {sources[0].section}):\n\n{sources[0].snippet}\n\n*Nota: Esta es una extracción directa ya que no hay LLM configurado.*"
+    return schemas.CanvasQuestionResponse(
+        answer=ans_text,
+        confidence=0.5,
+        sources=sources,
+        explanation="Extracción directa del mejor chunk debido a modo mock.",
+        mode="knowledge_only_mock",
+        needs_review=True
+    )

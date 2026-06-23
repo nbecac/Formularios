@@ -136,3 +136,45 @@ class ImportSummaryResponse(BaseModel):
     alumnos_actualizados: int
     observaciones_creadas: int
     errores: List[ImportCsvError]
+
+class AITestRequest(BaseModel):
+    student_id: Optional[int] = None
+    text: Optional[str] = None
+    provider: Optional[str] = None
+
+class AITestResponse(BaseModel):
+    provider: str
+    answer: str
+    fallback: bool
+    error: Optional[str] = None
+
+class KnowledgeImportSummary(BaseModel):
+    fuentes_importadas: int
+    chunks_creados: int
+    archivos_omitidos: int
+    errores: List[str]
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str
+    max_results: Optional[int] = 5
+    preferred_sections: Optional[List[str]] = None
+
+class KnowledgeSourceSnippet(BaseModel):
+    section: str
+    title: str
+    filename: str
+    snippet: str
+
+class CanvasQuestionRequest(BaseModel):
+    question: str
+    options: Optional[List[str]] = None
+    question_type: Optional[str] = None
+    instructions: Optional[str] = None
+
+class CanvasQuestionResponse(BaseModel):
+    answer: str
+    confidence: float
+    sources: List[KnowledgeSourceSnippet] = []
+    explanation: str
+    mode: str
+    needs_review: bool

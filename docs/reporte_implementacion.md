@@ -75,3 +75,27 @@ a fin de que su sintaxis pase *linters* estándar y los tests de GitHub Actions 
 Se restaurarán y pulirán la extensión y UI.
 Archivos como `popup.js`, `manifest.json` y `admin.html`. 
 La prioridad aquí será garantizar la legibilidad del HTML y JavaScript del lado del cliente.
+
+## Fase 3: IA real opcional
+El proyecto soporta el uso opcional de OpenAI para la generaci�n de respuestas de borradores.
+- **Modo Mock (por defecto)**: Si AI_PROVIDER=mock, la aplicacion cruza palabras clave del formulario con las notas y categorias de las observaciones del alumno localmente, sin hacer llamadas externas.
+- **Modo OpenAI**: Si AI_PROVIDER=openai y se configura OPENAI_API_KEY en el archivo .env, la IA analizara todo el contexto del alumno y los campos para generar respuestas mas contextualizadas. Si no se provee la API Key o hay problemas de red, el sistema hace un _fallback_ seguro al modo mock automaticamente para no bloquear el flujo.
+- No se suben claves al repositorio. La extension no envia el formulario de forma automatica bajo ningun concepto.
+
+Para probar la IA, visita docs/admin.html (o http://127.0.0.1:8000/docs/admin.html si lo sirves localmente) y usa el panel de Diagnostico IA.
+
+## Modo Evaluación Autorizada - Base de Datos
+Este modo especial permite utilizar el sistema para evaluaciones autorizadas (ej. Canvas Student) basándose estrictamente en el material del proyecto del curso.
+
+**Límites Éticos y Técnicos:**
+- NUNCA se enviará el formulario automáticamente. El envío es siempre manual.
+- No simula comportamiento humano para engañar a Canvas. Solo es una ayuda de borrador visible.
+- Si se activa KNOWLEDGE_ONLY_MODE=true, no usará material externo, solo el importado.
+
+**Cómo usar:**
+1. Crea una carpeta Material para responder en la raíz.
+2. Agrega subcarpetas: E1, E2, E3 y syllabus.
+3. Entra a docs/knowledge_admin.html (o usa la UI) y presiona **Importar desde Carpeta Local**.
+4. En el popup de la extensión, selecciona el **Modo Evaluación Autorizada**, presiona **Detectar pregunta actual** y luego **Buscar en material y sugerir**.
+5. Las búsquedas priorizan siempre E1, E2, E3 para asegurar fidelidad a lo entregado.
+6. Revisa las fuentes listadas antes de presionar **Rellenar borrador**.

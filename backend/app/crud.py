@@ -201,3 +201,108 @@ def create_history(db: Session, history: schemas.HistoryCreate):
     db.commit()
     db.refresh(db_hist)
     return db_hist
+
+import os
+from pathlib import Path
+
+def import_knowledge_folder(db: Session, base_folder_path: str) -> dict:
+    fuentes_importadas = 0
+    chunks_creados = 0
+    archivos_omitidos = 0
+    errores = []
+
+    base_path = Path(base_folder_path)
+    if not base_path.exists() or not base_path.is_dir():
+        errores.append(f"La carpeta '{base_folder_path}' no existe o no es un directorio.")
+        return {"fuentes_importadas": 0, "chunks_creados": 0, "archivos_omitidos": 0, "errores": errores}
+
+    db.query(models.KnowledgeSource).delete()
+    db.commit()
+
+    allowed_extensions = {".txt", ".md", ".csv", ".json"}
+    valid_sections = {"syllabus", "E1", "E2", "E3"}
+
+    for root, dirs, files in os.walk(base_path):
+        section = "syllabus"
+        for v_sec in valid_sections:
+            if v_sec in Path(root).parts:
+                section = v_sec
+                break
+
+        priority = 1
+        if section in ["E1", "E2", "E3"]:
+            priority = 2
+
+        for file in files:
+            file_path = Path(root) / file
+            if file_path.suffix.lower() not in allowed_extensions:
+                archivos_omitidos += 1
+                continue
+
+            try:
+                content = file_path.read_text(encoding="utf-8-sig", errors="ignore")
+                source = models.KnowledgeSource(
+                    title=file_path.stem,
+                    source_type=file_path.suffix.lower().strip('.'),
+                    folder=section,
+                    filename=file_path.name,
+                    priority=priority
+                )
+                db.add(source)
+                db.flush()
+                fuentes_importadas += 1
+
+                paragraphs = [p.strip() for p in content.split("\n\n") if len(p.strip()) > 20]
+                if not paragraphs:
+                    paragraphs = [content.strip()[:2000]]
+                    
+                for idx, p in enumerate(paragraphs):
+                    chunk = models.KnowledgeChunk(
+                        source_id=source.id,
+                        section=section,
+                        content=p[:2000],
+                        page_number=idx+1
+                    )
+                    db.add(chunk)
+                    chunks_creados += 1
+
+            except Exception as e:
+                errores.append(f"Error procesando {file_path.name}: {str(e)}")
+
+    db.commit()
+    return {
+        "fuentes_importadas": fuentes_importadas,
+        "chunks_creados": chunks_creados,
+        "archivos_omitidos": archivos_omitidos,
+        "errores": errores
+    }
+
+def search_knowledge(db: Session, query: str, max_results: int = 5, preferred_sections: list = None):
+    query_words = [w for w in query.lower().replace('?', '').replace('¿', '').split() if len(w) > 3]
+    if not query_words:
+        return []
+        
+    db_query = db.query(models.KnowledgeChunk).join(models.KnowledgeSource)
+    
+    from sqlalchemy import or_
+    filters = []
+    for w in query_words:
+        filters.append(models.KnowledgeChunk.content.ilike(f"%{w}%"))
+    if filters:
+        db_query = db_query.filter(or_(*filters))
+    
+    db_query = db_query.order_by(models.KnowledgeSource.priority.desc())
+    results = db_query.limit(max_results * 2).all()
+    
+    final_results = []
+    if preferred_sections:
+        for r in results:
+            if r.source.folder in preferred_sections:
+                final_results.append(r)
+        for r in results:
+            if r not in final_results:
+                final_results.append(r)
+    else:
+        final_results = results
+
+    return final_results[:max_results]
