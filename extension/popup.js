@@ -79,7 +79,15 @@ async function analyzeQuestion() {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         
         chrome.tabs.sendMessage(tab.id, { action: "detect_canvas_question" }, async (response) => {
-            if (chrome.runtime.lastError || !response || !response.question) {
+            if (chrome.runtime.lastError) {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                resultArea.style.display = 'block';
+                ansEl.innerText = "⚠️ Extensión Desconectada";
+                expEl.innerText = "Por favor, RECARGA ESTA PÁGINA (F5) para que la nueva versión de la extensión se conecte correctamente.";
+                return;
+            }
+            if (!response || !response.question) {
                 loading.style.display = 'none';
                 btn.disabled = false;
                 resultArea.style.display = 'block';
