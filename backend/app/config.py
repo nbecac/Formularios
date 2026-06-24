@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: Optional[str] = ""
     GEMINI_API_KEY: Optional[str] = ""
     GOOGLE_API_KEY: Optional[str] = ""
+    ANTHROPIC_API_KEY: Optional[str] = ""
     
     BACKEND_HOST: str = "127.0.0.1"
     BACKEND_PORT: int = 8000

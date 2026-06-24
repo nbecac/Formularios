@@ -168,8 +168,19 @@ function extractMultipleChoiceQuestion() {
     }
     
     if (questionContainer) {
-        const titleEl = questionContainer.querySelector('.question_text, legend, h3, h2, .title');
+        const titleEl = questionContainer.querySelector('.question_text, legend, h3, h2, .title, .question-text');
         if (titleEl) qText = titleEl.innerText;
+        
+        // Extract images and append them to the text to send to the AI
+        const images = questionContainer.querySelectorAll('img');
+        if (images.length > 0) {
+            qText += "\n[Imágenes Adjuntas en la Pregunta]:\n";
+            images.forEach(img => {
+                const alt = img.getAttribute('alt') || 'Imagen sin descripción';
+                const src = img.getAttribute('src');
+                qText += `- URL: ${src} (Descripción/Alt: ${alt})\n`;
+            });
+        }
         
         const inputs = questionContainer.querySelectorAll('input[type="radio"], input[type="checkbox"]');
         if (inputs.length > 0) {
@@ -227,7 +238,7 @@ function extractMultipleChoiceQuestion() {
     }
     
     return {
-        question: qText.trim().substring(0, 500),
+        question: qText.trim().substring(0, 500000),
         options: options,
         question_type: qType,
         selection_mode: selectionMode

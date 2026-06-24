@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Evaluación de Prueba - DCColo</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; padding: 20px; }
+        .question-block { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .question-text { font-weight: bold; font-size: 1.1em; margin-bottom: 15px; }
+        .options { list-style: none; padding: 0; }
+        .options li { margin-bottom: 10px; }
+        
+        /* Distintos formatos de alternativas para engañar al parser */
+        .opt-radio label { cursor: pointer; }
+        .opt-styled { color: #0056b3; font-weight: bold; }
+        .opt-box { border: 1px solid #ccc; padding: 5px; display: inline-block; border-radius: 4px; }
+        .opt-checkbox { display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+    <h1>Simulador de Evaluación (Canvas / Moodle)</h1>
+    <p>Prueba de reconocimiento de alternativas con la Extensión.</p>
+
+    <!-- Q1 -->
+    <div class="question-block question" id="q1">
+        <div class="question-text">1. ¿De qué trata el proyecto general desarrollado en el curso?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q1" value="A"> <label>A) Es una tienda online (E-commerce) con carrito de compras.</label></li>
+            <li><input type="radio" name="q1" value="B"> <label>B) Es un sistema de gestión para el Club Social y Deportivo DCColo.</label></li>
+            <li><input type="radio" name="q1" value="C"> <label>C) Es una red social descentralizada estilo Twitter.</label></li>
+            <li><input type="radio" name="q1" value="D"> <label>D) Es una aplicación móvil para delivery de comida.</label></li>
+        </ul>
+    </div>
+
+    <!-- Q2 -->
+    <div class="question-block question" id="q2">
+        <div class="question-text">2. ¿En qué curso y universidad se desarrolla este proyecto?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q2" value="A"> <label>A) IIC2233 - Programación Avanzada (PUC)</label></li>
+            <li><input type="radio" name="q2" value="B"> <label>B) CC3201 - Bases de Datos (UCHILE)</label></li>
+            <li><input type="radio" name="q2" value="C"> <label>C) IIC2413 - Bases de Datos (PUC)</label></li>
+            <li><input type="radio" name="q2" value="D"> <label>D) IIC2143 - Ingeniería de Software (PUC)</label></li>
+        </ul>
+    </div>
+
+    <!-- Q3 (With Image) -->
+    <div class="question-block question" id="q3">
+        <div class="question-text">3. Analiza el siguiente diagrama: <br><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" width="300" height="100" style="background-color:#ccc; display:block; margin: 10px 0;" alt="Diagrama Entidad-Relacion"> En un modelo Entidad-Relación en BCNF, ¿qué significa que la relación esté normalizada en esta forma?</div>
+        <div class="options">
+            <div><input type="radio" name="q3" value="A"> <span class="opt-styled">A) Que no existen llaves foráneas.</span></div>
+            <div><input type="radio" name="q3" value="B"> <span class="opt-styled">B) Que en toda tabla, cualquier conjunto de atributos que determina a otro, es una superllave.</span></div>
+            <div><input type="radio" name="q3" value="C"> <span class="opt-styled">C) Que todas las columnas admiten valores nulos.</span></div>
+            <div><input type="radio" name="q3" value="D"> <span class="opt-styled">D) Que los datos están desnormalizados para mejorar lectura.</span></div>
+        </div>
+    </div>
+
+    <!-- Q4 (With Image) -->
+    <div class="question-block question" id="q4">
+        <div class="question-text">4. Se muestra el logo de PostgreSQL: <br><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" width="100" height="100" style="background-color:#336791; display:block; margin: 10px 0;" alt="Logo Elephant"> En PostgreSQL, ¿cuál es el tipo de dato que se usa comúnmente para generar llaves primarias autoincrementales sin depender de tipos como INT estáticos?</div>
+        <div class="options">
+            <p><input type="radio" name="q4" value="A"> <span class="opt-box">A) AUTO_INCREMENT</span></p>
+            <p><input type="radio" name="q4" value="B"> <span class="opt-box">B) SERIAL</span></p>
+            <p><input type="radio" name="q4" value="C"> <span class="opt-box">C) UUID_AUTO</span></p>
+            <p><input type="radio" name="q4" value="D"> <span class="opt-box">D) VARCHAR(255)</span></p>
+        </div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="question-block question" id="q5">
+        <div class="question-text">5. Según el modelo de la Entrega 1 (E1), ¿Cuál es la entidad principal de la cual heredan o se especializan las demás?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q5" value="A"> <label>A) Socio Titular</label></li>
+            <li><input type="radio" name="q5" value="B"> <label>B) Usuario</label></li>
+            <li><input type="radio" name="q5" value="C"> <label>C) Persona</label></li>
+            <li><input type="radio" name="q5" value="D"> <label>D) Cliente</label></li>
+        </ul>
+    </div>
+
+    <!-- Q6 -->
+    <div class="question-block question" id="q6">
+        <div class="question-text">6. ¿Por qué "Beneficiarios" es modelada como una entidad débil en la E1?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q6" value="A"> <label>A) Porque no puede existir sin estar asociada a un Socio Titular (llave compuesta).</label></li>
+            <li><input type="radio" name="q6" value="B"> <label>B) Porque los beneficiarios no pagan cuotas bajo ninguna circunstancia.</label></li>
+            <li><input type="radio" name="q6" value="C"> <label>C) Porque sus datos se borran cada año.</label></li>
+            <li><input type="radio" name="q6" value="D"> <label>D) Porque no tienen acceso al sistema web.</label></li>
+        </ul>
+    </div>
+
+    <!-- Q7 -->
+    <div class="question-block question" id="q7">
+        <div class="question-text">7. En la Entrega 2 (E2), ¿cuál fue el propósito fundamental del archivo `main.php`?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q7" value="A"> <label><span style="color:red">A)</span> Mostrar el dashboard de administración en HTML.</label></li>
+            <li><input type="radio" name="q7" value="B"> <label><span style="color:red">B)</span> Configurar los puertos del servidor Stonebraker.</label></li>
+            <li><input type="radio" name="q7" value="C"> <label><span style="color:red">C)</span> Actuar como un proceso ETL para sanear archivos CSV generando salidas OK, ERR y LOG.</label></li>
+            <li><input type="radio" name="q7" value="D"> <label><span style="color:red">D)</span> Enviar correos masivos a los socios morosos.</label></li>
+        </ul>
+    </div>
+
+    <!-- Q8 -->
+    <div class="question-block question" id="q8">
+        <div class="question-text">8. ¿Qué información exacta retorna la consulta `ingresomensual.sql` de la E2?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q8" value="A"> <label>A) La lista de sueldos de los empleados del mes.</label></li>
+            <li><input type="radio" name="q8" value="B"> <label>B) Los ingresos efectivos y futuros esperados en el mes por sucursal.</label></li>
+            <li><input type="radio" name="q8" value="C"> <label>C) El registro de nuevos socios inscritos en el mes.</label></li>
+            <li><input type="radio" name="q8" value="D"> <label>D) El balance total anual de la base de datos.</label></li>
+        </ul>
+    </div>
+
+    <!-- Q9 -->
+    <div class="question-block question" id="q9">
+        <div class="question-text">9. ¿Qué arquitectura y lenguaje se utilizó estrictamente para desarrollar el frontend y backend de la aplicación web en la Entrega 3 (E3)?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q9" value="A"> <label>A) Backend en Node.js, Frontend en React.</label></li>
+            <li><input type="radio" name="q9" value="B"> <label>B) Backend en Python (FastAPI), Frontend en Vue.</label></li>
+            <li><input type="radio" name="q9" value="C"> <label>C) Backend en Java, Frontend en Angular.</label></li>
+            <li><input type="radio" name="q9" value="D"> <label>D) PHP puro (con HTML y CSS) conectado a PostgreSQL.</label></li>
+        </ul>
+    </div>
+
+    <!-- Q10 (Trampa) -->
+    <div class="question-block question" id="q10">
+        <div class="question-text">10. ¿Cuál es el comando exacto para compilar el código del frontend de React utilizado en la Entrega 3?</div>
+        <ul class="options opt-radio">
+            <li><input type="radio" name="q10" value="A"> <label>A) npm run build</label></li>
+            <li><input type="radio" name="q10" value="B"> <label>B) npx create-react-app build</label></li>
+            <li><input type="radio" name="q10" value="C"> <label>C) npm start</label></li>
+            <li><input type="radio" name="q10" value="D"> <label>D) yarn build:production</label></li>
+        </ul>
+    </div>
+
+    <!-- Q11 (Multi-select) -->
+    <div class="question-block question" id="q11">
+        <div class="question-text">11. Según las reglas del negocio de la E3, ¿Quiénes tienen permiso para arrendar canchas en el sistema? (Seleccione todas las correctas)</div>
+        <div class="options">
+            <div class="opt-checkbox"><input type="checkbox" name="q11_A" id="q11_A"> <label for="q11_A">A) Administrativos</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q11_B" id="q11_B"> <label for="q11_B">B) Administradores</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q11_C" id="q11_C"> <label for="q11_C">C) Socios Titulares (activos)</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q11_D" id="q11_D"> <label for="q11_D">D) Beneficiarios dependientes</label></div>
+        </div>
+    </div>
+
+    <!-- Q12 (Multi-select) -->
+    <div class="question-block" id="q12">
+        <div class="question-text">12. Sobre la lógica de eventos y pagos en el sistema DCColo (Seleccione todas las correctas):</div>
+        <div class="options">
+            <div class="opt-checkbox"><input type="checkbox" name="q12_A" id="q12_A"> <label for="q12_A">A) Se paga el 50% al reservar un evento, y el saldo restante el día del evento.</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q12_B" id="q12_B"> <label for="q12_B">B) Los Socios Titulares pueden pagar cuotas parciales mes a mes.</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q12_C" id="q12_C"> <label for="q12_C">C) Todo código generado con IA debe tener un tag indicando el porcentaje y prompt usado.</label></div>
+            <div class="opt-checkbox"><input type="checkbox" name="q12_D" id="q12_D"> <label for="q12_D">D) A los 29 años, los hijos beneficiarios dejan de ser gratuitos.</label></div>
+        </div>
+    </div>
+
+</body>
+</html>

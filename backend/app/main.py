@@ -164,6 +164,9 @@ def debug_status(db: Session = Depends(get_db)):
         elif ai_provider == "gemini" and settings.ACTIVE_GEMINI_KEY:
             has_key = True
             key_source = settings.GEMINI_KEY_SOURCE
+        elif ai_provider == "anthropic" and settings.ANTHROPIC_API_KEY:
+            has_key = True
+            key_source = "ANTHROPIC_API_KEY"
             
         return {
             "status": "ok",

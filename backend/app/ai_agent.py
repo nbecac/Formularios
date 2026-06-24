@@ -315,9 +315,94 @@ def answer_project_question(req: Any, db: Any, settings: Any) -> Any:
                 option_scores=[]
             )
         
-        # --- Gemini Integration ---
+        # --- AI Integration ---
         ai_provider = settings.AI_PROVIDER.lower() if settings and hasattr(settings, "AI_PROVIDER") else ""
-        if ai_provider == "gemini" and hasattr(settings, "ACTIVE_GEMINI_KEY") and settings.ACTIVE_GEMINI_KEY:
+        
+        if ai_provider == "anthropic" and hasattr(settings, "ANTHROPIC_API_KEY") and settings.ANTHROPIC_API_KEY:
+            try:
+                import json
+                import anthropic
+                
+                client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                options_text = json.dumps([{"label": o.label, "text": o.text} for o in req.options], ensure_ascii=False)
+                
+                system_prompt = f"""Eres un asistente experto evaluando una pregunta de selección múltiple sobre un proyecto de Base de Datos.
+REGLA 1: Prioriza la información que provenga de la sección "memoria_maestra".
+REGLA 2: No inventes hechos específicos.
+REGLA 3: Tu respuesta debe categorizarse en uno de los siguientes tres niveles y usar la 'confidence' indicada:
+1. Evidencia directa: Tienes la prueba exacta en la evidencia. Elige la alternativa. confidence = 0.70 a 0.90
+2. Inferencia razonable: No hay prueba explícita, pero por descarte o lógica fundamentada en la evidencia, una alternativa es claramente la mejor. Elige la alternativa. explanation DEBE decir "inferencia por descarte" o "inferencia razonable". confidence = 0.35 a 0.55
+3. Sin evidencia suficiente: No hay cómo decidir o es una pregunta trampa (e.g. herramientas no usadas). selected_option = null. confidence = 0.0 a 0.25. explanation debe indicar qué falta o por qué es trampa.
+
+Evidencia extraida:
+{evidence_text}
+
+Debes responder SOLAMENTE con un objeto JSON válido.
+El JSON debe contener:
+- "selected_option": el label de la opción seleccionada o null.
+- "confidence": número entre 0.0 y 1.0.
+- "explanation": por qué seleccionaste la opción, siguiendo la REGLA 3.
+No incluyas markdown, responde directamente con el JSON."""
+
+                user_prompt = f"Pregunta: {req.question}\nOpciones:\n{options_text}"
+                
+                message = client.messages.create(
+                    model=settings.AI_MODEL or "claude-sonnet-4-6",
+                    max_tokens=1000,
+                    temperature=0.0,
+                    system=system_prompt,
+                    messages=[
+                        {"role": "user", "content": user_prompt}
+                    ]
+                )
+                
+                # Claude might return text wrapped in markdown json block
+                response_text = message.content[0].text
+                if response_text.startswith("```json"):
+                    response_text = response_text[7:]
+                if response_text.endswith("```"):
+                    response_text = response_text[:-3]
+                
+                data = json.loads(response_text)
+                selected_label = data.get("selected_option")
+                conf = float(data.get("confidence", 0.0))
+                expl = data.get("explanation", "Generado por Anthropic Claude.")
+                
+                selected_text = None
+                if selected_label:
+                    for opt in req.options:
+                        if opt.label == selected_label:
+                            selected_text = opt.text
+                            break
+                            
+                return schemas.CanvasQuestionResponse(
+                    answer=f"Alternativa sugerida: {selected_label}" if selected_label else "No se pudo determinar una alternativa con certeza.",
+                    selected_option=selected_label,
+                    selected_option_text=selected_text,
+                    confidence=conf,
+                    sources=sources,
+                    explanation=expl,
+                    question_type="multiple_choice",
+                    mode="anthropic_multiple_choice_suggestion",
+                    needs_review=True,
+                    option_scores=[]
+                )
+            except Exception as e:
+                print("ANTHROPIC ERROR:", e)
+                return schemas.CanvasQuestionResponse(
+                    answer="❌ Error: La API de Anthropic falló.",
+                    selected_option=None,
+                    selected_option_text=None,
+                    confidence=0.0,
+                    sources=[],
+                    explanation=f"Fallo de Anthropic: {str(e)}",
+                    question_type="multiple_choice",
+                    mode="error",
+                    needs_review=True,
+                    option_scores=[]
+                )
+                
+        elif ai_provider == "gemini" and hasattr(settings, "ACTIVE_GEMINI_KEY") and settings.ACTIVE_GEMINI_KEY:
             try:
                 import json
                 from google import genai
@@ -377,8 +462,21 @@ Debes responder SOLAMENTE con un objeto JSON (sin comillas invertidas ni markdow
                     option_scores=[]
                 )
             except Exception as e:
-                pass
-        # --- Fin Gemini Integration ---
+                print("GEMINI ERROR:", e)
+                # Fail fast to avoid fallback logic
+                return schemas.CanvasQuestionResponse(
+                    answer="❌ Error: La API de Gemini alcanzó su límite gratuito (Error 429) o falló.",
+                    selected_option=None,
+                    selected_option_text=None,
+                    confidence=0.0,
+                    sources=[],
+                    explanation=f"Fallo de Gemini: {str(e)}",
+                    question_type="multiple_choice",
+                    mode="error",
+                    needs_review=True,
+                    option_scores=[]
+                )
+        # --- Fin AI Integration ---
 
         # Score each option against chunks
         scored = []
