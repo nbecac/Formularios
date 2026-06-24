@@ -2,72 +2,72 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <link rel="stylesheet" href="popup.css">
     <title>Formularios AI Assistant</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            text-align: center; 
+            background: #ffffff; 
+            width: 300px; 
+        }
+        .btn-black { 
+            background: #000000; 
+            color: #ffffff; 
+            border: none; 
+            padding: 16px 24px; 
+            font-size: 18px; 
+            font-weight: bold; 
+            border-radius: 8px; 
+            cursor: pointer;
+            width: 100%; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: background 0.2s;
+        }
+        .btn-black:hover { 
+            background: #333333; 
+        }
+        .btn-black:disabled { 
+            background: #888888; 
+            cursor: not-allowed; 
+        }
+        #resultArea { 
+            margin-top: 20px; 
+            text-align: left; 
+            display: none; 
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        #canvasAnswer { 
+            font-size: 18px; 
+            font-weight: 800; 
+            color: #000; 
+            margin-bottom: 8px; 
+            display: block; 
+        }
+        #canvasExplanation { 
+            color: #495057;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        #loading { 
+            display: none; 
+            margin-top: 15px; 
+            color: #6c757d; 
+            font-size: 15px; 
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h2>Formularios AI</h2>
-            <div id="statusBadge" class="badge error">Desconectado</div>
-        </header>
-
-        <div class="warning-box">
-            <strong>Atención:</strong> La extensión solo rellena borradores. Revisa antes de enviar. ¡NUNCA enviará formularios automáticamente!
-        </div>
-
-        <div class="section">
-            <label for="studentSelect">Alumno / Perfil:</label>
-            <select id="studentSelect" disabled>
-                <option value="">Cargando estudiantes...</option>
-            </select>
-            <button id="btnReloadStudents" class="btn text" style="margin-top:0.5rem; display:block; padding: 0.2rem 0.5rem; font-size: 0.8rem;">Recargar alumnos</button>
-        </div>
-
-        <div class="section warning-box" style="background:#e0f2fe; border-color:#38bdf8; margin-top: 1rem;">
-            <h3>Modo Alternativas (Evaluación Autorizada)</h3>
-            <p style="font-size:0.8rem;">Usar solo si esta herramienta está autorizada para la evaluación. La extensión NO marca ni envía respuestas. Revisa manualmente antes de responder.</p>
-            <button id="btnDetectCanvas" class="btn primary" style="width:100%; margin-top:0.5rem;">Detectar pregunta y alternativas</button>
-            <button id="btnGenerateCanvas" class="btn secondary" style="width:100%; margin-top:0.5rem;" disabled>Sugerir alternativa con material local</button>
-            <div id="canvasResponseArea" style="margin-top: 0.5rem; padding: 0.5rem; background: #fff; border: 1px solid #ccc; display: none; font-size:0.8rem;">
-                <strong id="canvasAnswer"></strong><br>
-                <span id="canvasExplanation"></span>
-                <div id="canvasScores" style="margin-top: 0.5rem; background: #f8fafc; padding: 0.5rem; border-radius: 4px; font-family: monospace; font-size: 0.75rem; white-space: pre-wrap;"></div>
-                <div id="canvasSources" style="margin-top: 0.5rem; color: #666;"></div>
-            </div>
-        </div>
-
-        <div class="actions">
-            <button id="btnDetect" class="btn primary">Detectar campos</button>
-            <button id="btnGenerate" class="btn secondary" disabled>Generar respuestas</button>
-            <button id="btnFill" class="btn success" disabled>Rellenar borrador</button>
-            <button id="btnClear" class="btn text">Limpiar</button>
-            <button id="btnTestConn" class="btn text">Probar conexión</button>
-        </div>
-
-        <div class="section diag-section">
-            <h3>Diagnóstico</h3>
-            <ul class="diag-list">
-                <li><strong>Backend:</strong> <span id="diagBackend">Desconectado</span></li>
-                <li><strong>URL:</strong> <span id="diagUrl">-</span></li>
-                <li><strong>Campos:</strong> <span id="diagFields">0</span></li>
-                <li><strong>Alumno:</strong> <span id="diagStudent">-</span></li>
-                <li><strong>Última resp.:</strong> <span id="diagBackendResp">-</span></li>
-                <li><strong>Último error:</strong> <span id="diagError">-</span></li>
-                <li><strong>Content script:</strong> <span id="diagCs">Cargando...</span></li>
-            </ul>
-        </div>
-
-        <div class="section">
-            <h3>Campos Detectados (<span id="fieldCount">0</span>)</h3>
-            <div id="fieldList" class="field-list">
-                <p class="empty-state">No hay campos detectados. Usa el botón de arriba.</p>
-            </div>
-        </div>
-
-        <div class="logs" id="logsArea">
-            Listo para iniciar.
-        </div>
+    <button id="btnExecute" class="btn-black">Ejecutar</button>
+    <div id="loading">Analizando pregunta en pantalla...</div>
+    <div id="resultArea">
+        <span id="canvasAnswer"></span>
+        <div id="canvasExplanation"></div>
     </div>
     <script src="popup.js"></script>
 </body>

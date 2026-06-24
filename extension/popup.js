@@ -1,384 +1,63 @@
 const API_URL = "http://127.0.0.1:8000";
-let currentFields = [];
-let currentAnswers = [];
 
-const diagBackend = document.getElementById('diagBackend');
-const diagUrl = document.getElementById('diagUrl');
-const diagFields = document.getElementById('diagFields');
-const diagStudent = document.getElementById('diagStudent');
-const diagBackendResp = document.getElementById('diagBackendResp');
-const diagError = document.getElementById('diagError');
-const diagCs = document.getElementById('diagCs');
-
-function log(msg) {
-    const logsArea = document.getElementById('logsArea');
-    logsArea.innerText = msg + '\n' + logsArea.innerText;
-}
-
-function setError(msg) {
-    log("ERROR: " + msg);
-    diagError.innerText = msg;
-    console.error(msg);
-}
-
-function setStatus(connected) {
-    const badge = document.getElementById('statusBadge');
-    if (connected) {
-        badge.className = 'badge success';
-        badge.innerText = 'Conectado';
-        diagBackend.innerText = 'Sí';
-    } else {
-        badge.className = 'badge error';
-        badge.innerText = 'Desconectado';
-        diagBackend.innerText = 'No';
-    }
-}
-
-async function apiCall(path, options = {}) {
-    try {
-        const response = await new Promise((resolve) => {
-            chrome.runtime.sendMessage(
-                { action: "fetch_api", url: API_URL + path, options: options },
-                (res) => {
-                    if (chrome.runtime.lastError) {
-                        resolve({ ok: false, error: chrome.runtime.lastError.message });
-                    } else {
-                        resolve(res);
-                    }
-                }
-            );
-        });
-        
-        if (!response) throw new Error("No hay respuesta del Service Worker.");
-        if (response.error) throw new Error(response.error);
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        
-        diagBackendResp.innerText = String(response.status || "") + " OK";
-        return response.data;
-    } catch (e) {
-        diagBackendResp.innerText = "Error";
-        console.error("API Call failed:", e);
-        throw e;
-    }
-}
-
-async function checkHealth() {
-    try {
-        await apiCall('/health');
-        setStatus(true);
-        loadStudents();
-    } catch (e) {
-        setStatus(false);
-        setError("No se pudo conectar al backend.");
-    }
-}
-
-document.getElementById('btnTestConn').addEventListener('click', async () => {
-    log("Probando conexión...");
-    try {
-        const data = await apiCall('/health');
-        if (data && data.status === 'ok') {
-            log("Conectado correctamente.");
-            setStatus(true);
-        } else {
-            setError("Backend no responde correctamente.");
-        }
-    } catch(e) {
-        setError("Error de conexión. " + e.message);
-        setStatus(false);
-    }
-});
-
-async function loadStudents() {
-    try {
-        const students = await apiCall('/api/students');
-        const select = document.getElementById('studentSelect');
-        select.innerHTML = '<option value="">Selecciona un alumno...</option>';
-        if (students.length === 0) {
-            select.innerHTML = '<option value="">No hay alumnos en la BD</option>';
-            select.disabled = true;
-            log("No hay alumnos registrados.");
-        } else {
-            students.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.id;
-                opt.innerText = (s.name || "Alumno " + s.id);
-                select.appendChild(opt);
-            });
-            select.disabled = false;
-            log("Alumnos cargados.");
-        }
-    } catch(e) {
-        setError("No se pudieron cargar alumnos.");
-    }
-}
-
-document.getElementById('btnReloadStudents').addEventListener('click', () => {
-    log("Recargando alumnos...");
-    loadStudents();
-});
-
-document.getElementById('studentSelect').addEventListener('change', (e) => {
-    const sel = e.target;
-    diagStudent.innerText = sel.options[sel.selectedIndex].text;
-});
-
-document.getElementById('btnDetect').addEventListener('click', async () => {
-    log("Detectando campos...");
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) return setError("No hay tab activo.");
+document.getElementById('btnExecute').addEventListener('click', async () => {
+    const btn = document.getElementById('btnExecute');
+    const loading = document.getElementById('loading');
+    const resultArea = document.getElementById('resultArea');
+    const ansEl = document.getElementById('canvasAnswer');
+    const expEl = document.getElementById('canvasExplanation');
     
-    diagUrl.innerText = tab.url.substring(0, 30) + "...";
-
-    chrome.tabs.sendMessage(tab.id, { action: "detect_fields" }, async (response) => {
-        if (chrome.runtime.lastError) {
-            diagCs.innerText = 'No cargado / Bloqueado';
-            return setError("Error CS: Recarga página o permite URLs de archivo.");
-        }
-        
-        diagCs.innerText = 'Cargado';
-        
-        if (response && response.fields) {
-            if (response.fields.length === 0) return setError("No se detectaron campos.");
-            log("Detectados " + response.fields.length + " campos.");
-            
-            try {
-                const resData = await apiCall('/api/forms/analyze', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fields: response.fields })
-                });
-                
-                currentFields = resData.fields;
-                document.getElementById('fieldCount').innerText = currentFields.length;
-                diagFields.innerText = currentFields.length;
-                renderFields(currentFields);
-                document.getElementById('btnGenerate').disabled = false;
-            } catch(e) {
-                setError("Error al analizar: " + e.message);
-            }
-        }
-    });
-});
-
-document.getElementById('btnGenerate').addEventListener('click', async () => {
-    const studentId = document.getElementById('studentSelect').value;
-    if (!studentId) return setError("No hay alumno seleccionado.");
-    
-    log("Generando respuestas...");
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    btn.disabled = true;
+    loading.style.display = 'block';
+    resultArea.style.display = 'none';
     
     try {
-        const response = await apiCall('/api/forms/generate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                fields: currentFields,
-                student_id: parseInt(studentId),
-                url: tab.url,
-                page_title: tab.title
-            })
-        });
-        
-        currentAnswers = response.answers;
-        log("Se generaron " + currentAnswers.length + " respuestas.");
-        renderFields(currentFields, currentAnswers);
-        document.getElementById('btnFill').disabled = false;
-    } catch(e) {
-        setError("Error al generar: " + e.message);
-    }
-});
-
-document.getElementById('btnFill').addEventListener('click', async () => {
-    log("Rellenando borrador...");
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    
-    chrome.tabs.sendMessage(tab.id, { action: "fill_fields", answers: currentAnswers }, async (response) => {
-        if (chrome.runtime.lastError) return setError("El content script falló al rellenar.");
-        
-        if (response && response.success) {
-            log("Campos rellenados.");
-            try {
-                await apiCall('/api/history', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        url: tab.url,
-                        page_title: tab.title,
-                        student_id: parseInt(document.getElementById('studentSelect').value),
-                        detected_fields_json: JSON.stringify(currentFields),
-                        generated_answers_json: JSON.stringify(currentAnswers)
-                    })
-                });
-            } catch(e) {
-                console.error("Historial falló", e);
-            }
-        } else {
-            setError("Error al rellenar en la página.");
-        }
-    });
-});
-
-document.getElementById('btnClear').addEventListener('click', () => {
-    currentFields = [];
-    currentAnswers = [];
-    renderFields([]);
-    document.getElementById('fieldCount').innerText = '0';
-    diagFields.innerText = '0';
-    document.getElementById('btnGenerate').disabled = true;
-    document.getElementById('btnFill').disabled = true;
-    log("Sugerencias limpiadas.");
-    diagError.innerText = '-';
-});
-
-function renderFields(fields, answers = []) {
-    const list = document.getElementById('fieldList');
-    list.innerHTML = '';
-    
-    if (fields.length === 0) {
-        const p = document.createElement('p');
-        p.className = 'empty-state';
-        p.innerText = 'No hay campos detectados.';
-        list.appendChild(p);
-        return;
-    }
-    
-    fields.forEach(f => {
-        const item = document.createElement('div');
-        item.className = 'field-item';
-        
-        const spanLabel = document.createElement('span');
-        spanLabel.className = 'label';
-        spanLabel.innerText = (f.normalizedLabel || "Sin nombre") + " (" + (f.type || "") + ")";
-        item.appendChild(spanLabel);
-        
-        const ans = answers.find(a => a.fieldId === f.fieldId);
-        if (ans) {
-            const spanAns = document.createElement('span');
-            spanAns.className = 'answer';
-            spanAns.innerText = "Sugerencia: " + (ans.value || ans.answer || "");
-            item.appendChild(document.createElement('br'));
-            item.appendChild(spanAns);
-            
-            const spanMeta = document.createElement('span');
-            spanMeta.style.fontSize = '0.75rem';
-            spanMeta.style.color = '#6b7280';
-            spanMeta.style.display = 'block';
-            spanMeta.style.marginTop = '0.25rem';
-            spanMeta.innerText = "Fuente: " + (ans.source || "-") + " - " + (ans.explanation || "");
-            item.appendChild(spanMeta);
-        }
-        list.appendChild(item);
-    });
-}
-
-checkHealth();
-
-// ----- CANVAS MODE LOGIC -----
-const btnDetectCanvas = document.getElementById('btnDetectCanvas');
-const btnGenerateCanvas = document.getElementById('btnGenerateCanvas');
-const canvasResponseArea = document.getElementById('canvasResponseArea');
-const canvasAnswer = document.getElementById('canvasAnswer');
-const canvasExplanation = document.getElementById('canvasExplanation');
-const canvasSources = document.getElementById('canvasSources');
-
-const canvasScores = document.getElementById('canvasScores');
-
-let currentCanvasQuestion = null;
-
-function logMsg(msg) {
-    log(msg);
-}
-
-if (btnDetectCanvas) {
-    btnDetectCanvas.addEventListener('click', async () => {
-        logMsg("Detectando pregunta de Canvas...");
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         
-        chrome.tabs.sendMessage(tab.id, { action: "detect_canvas_question" }, response => {
-            if (chrome.runtime.lastError) {
-                logMsg("Error en tab: " + chrome.runtime.lastError.message);
+        chrome.tabs.sendMessage(tab.id, { action: "detect_canvas_question" }, async (response) => {
+            if (chrome.runtime.lastError || !response || !response.question) {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                resultArea.style.display = 'block';
+                ansEl.innerText = "⚠️ No detectado";
+                expEl.innerText = "Haz scroll en la página para centrar bien la pregunta en la pantalla antes de ejecutar.";
                 return;
             }
-            if (response && response.question) {
-                currentCanvasQuestion = response;
-                let detMsg = "Pregunta detectada: " + response.question.substring(0, 80) + "...";
-                if (response.options && response.options.length > 0) {
-                    detMsg += "\nAlternativas detectadas: " + response.options.length + " (" + response.selection_mode + ")";
-                    for (var i = 0; i < response.options.length; i++) {
-                        var o = response.options[i];
-                        detMsg += "\n  " + o.label + ") " + o.text;
-                    }
+            
+            try {
+                const res = await fetch(`${API_URL}/api/ai/canvas`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(response)
+                });
+                
+                const data = await res.json();
+                
+                loading.style.display = 'none';
+                btn.disabled = false;
+                resultArea.style.display = 'block';
+                
+                if (data.selected_option) {
+                    ansEl.innerText = `🎯 Alternativa: ${data.selected_option}`;
+                } else {
+                    ansEl.innerText = `🤔 Dudoso`;
                 }
-                logMsg(detMsg);
-                btnGenerateCanvas.disabled = false;
-            } else {
-                logMsg("No se detectó pregunta clara.");
+                
+                expEl.innerText = data.explanation || "No hay explicación.";
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                btn.disabled = false;
+                resultArea.style.display = 'block';
+                ansEl.innerText = "❌ Error Backend";
+                expEl.innerText = "Asegúrate de que el backend (02_start_backend.bat) esté corriendo en puerto 8000.";
             }
         });
-    });
-}
-
-if (btnGenerateCanvas) {
-    btnGenerateCanvas.addEventListener('click', async () => {
-        if (!currentCanvasQuestion) return;
-        logMsg("Sugerencia solicitada. Consultando backend...");
-        btnGenerateCanvas.disabled = true;
-        
-        try {
-            const resData = await apiCall('/api/ai/canvas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(currentCanvasQuestion)
-            });
-            
-            canvasResponseArea.style.display = 'block';
-            canvasAnswer.innerText = resData.answer || "Sin respuesta";
-            
-            var explText = "Confianza: " + resData.confidence.toFixed(2);
-            if (resData.explanation) {
-                explText += "\nMotivo: " + resData.explanation;
-            }
-            if (resData.question_type === "multiple_choice" && currentCanvasQuestion.selection_mode === "multiple") {
-                explText += "\n\nADVERTENCIA: Pregunta de seleccion multiple detectada. Revisa manualmente.";
-            }
-            canvasExplanation.innerText = explText;
-            
-            // Mostrar scores por alternativa (debug)
-            if (resData.option_scores && resData.option_scores.length > 0) {
-                var scoresText = "--- Scores por alternativa ---\n";
-                for (var j = 0; j < resData.option_scores.length; j++) {
-                    var os = resData.option_scores[j];
-                    var marker = (resData.selected_option && os.label === resData.selected_option) ? " << SUGERIDA" : "";
-                    scoresText += os.label + ": " + os.score + " pts" + marker + "\n";
-                    scoresText += "   " + os.text.substring(0, 60) + "\n";
-                }
-                if (resData.option_scores.length >= 2) {
-                    var best = resData.option_scores[0].score;
-                    var second = resData.option_scores[1].score;
-                    scoresText += "\nMejor: " + resData.option_scores[0].label + " (" + best + ")";
-                    scoresText += "\nSegunda: " + resData.option_scores[1].label + " (" + second + ")";
-                    scoresText += "\nMargen: " + (best - second).toFixed(1);
-                }
-                canvasScores.innerText = scoresText;
-                canvasScores.style.display = "block";
-            } else {
-                canvasScores.style.display = "none";
-            }
-            
-            // Mostrar fuentes deduplicadas
-            if (resData.sources && resData.sources.length > 0) {
-                canvasSources.innerHTML = "<strong>Fuentes (" + resData.sources.length + "):</strong><br>" + 
-                    resData.sources.map(function(s) { return "- [" + s.section + "] " + s.filename; }).join("<br>");
-            } else {
-                canvasSources.innerHTML = "<em>Sin fuentes locales encontradas.</em>";
-            }
-            
-            logMsg("Sugerencia mostrada. Acción manual requerida.");
-        } catch (e) {
-            logMsg("Error al generar: " + e.message);
-        } finally {
-            btnGenerateCanvas.disabled = false;
-        }
-    });
-}
+    } catch (e) {
+        loading.style.display = 'none';
+        btn.disabled = false;
+        resultArea.style.display = 'block';
+        ansEl.innerText = "Error";
+        expEl.innerText = e.message;
+    }
+});
