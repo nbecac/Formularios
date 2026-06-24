@@ -1,6 +1,6 @@
 const API_URL = "http://127.0.0.1:8000";
 
-document.getElementById('btnExecute').addEventListener('click', async () => {
+async function analyzeQuestion() {
     const btn = document.getElementById('btnExecute');
     const loading = document.getElementById('loading');
     const resultArea = document.getElementById('resultArea');
@@ -20,7 +20,7 @@ document.getElementById('btnExecute').addEventListener('click', async () => {
                 btn.disabled = false;
                 resultArea.style.display = 'block';
                 ansEl.innerText = "⚠️ No detectado";
-                expEl.innerText = "Haz scroll en la página para centrar bien la pregunta en la pantalla antes de ejecutar.";
+                expEl.innerText = "Haz scroll en la página para centrar bien la pregunta en la pantalla y vuelve a intentarlo.";
                 return;
             }
             
@@ -60,4 +60,12 @@ document.getElementById('btnExecute').addEventListener('click', async () => {
         ansEl.innerText = "Error";
         expEl.innerText = e.message;
     }
+}
+
+// Ejecutar automáticamente al abrir el popup
+document.addEventListener('DOMContentLoaded', () => {
+    analyzeQuestion();
 });
+
+// Permitir re-ejecutar si el usuario hace scroll a otra pregunta sin cerrar el popup
+document.getElementById('btnExecute').addEventListener('click', analyzeQuestion);
