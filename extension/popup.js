@@ -1,11 +1,75 @@
 const API_URL = "http://127.0.0.1:8000";
 
+let pollInterval = null;
+
+async function checkCacheAndRender() {
+    const btn = document.getElementById('btnExecute');
+    const loading = document.getElementById('loading');
+    const resultArea = document.getElementById('resultArea');
+    const ansEl = document.getElementById('canvasAnswer');
+    const expEl = document.getElementById('canvasExplanation');
+    
+    try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        
+        chrome.runtime.sendMessage({ action: "get_cached_answer", tabId: tab.id }, (cache) => {
+            if (!cache) {
+                // No hay cache, fallback a analisis manual/directo
+                analyzeQuestion();
+                return;
+            }
+            
+            if (cache.status === "loading") {
+                btn.disabled = true;
+                loading.style.display = 'block';
+                resultArea.style.display = 'none';
+                
+                // Seguir esperando
+                if (!pollInterval) {
+                    pollInterval = setInterval(checkCacheAndRender, 500);
+                }
+                return;
+            }
+            
+            // Ya cargó, limpiar intervalo
+            if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            }
+            
+            loading.style.display = 'none';
+            btn.disabled = false;
+            resultArea.style.display = 'block';
+            
+            if (cache.status === "error") {
+                ansEl.innerText = "❌ Error Backend";
+                expEl.innerText = cache.error || "Asegúrate de que el backend esté corriendo.";
+                return;
+            }
+            
+            const data = cache.data;
+            if (data && data.selected_option) {
+                ansEl.innerText = `🎯 Alternativa: ${data.selected_option}`;
+            } else {
+                ansEl.innerText = `🤔 Dudoso`;
+            }
+            
+            expEl.innerText = (data && data.explanation) ? data.explanation : "No hay explicación.";
+        });
+    } catch (e) {
+        console.error(e);
+        analyzeQuestion();
+    }
+}
+
 async function analyzeQuestion() {
     const btn = document.getElementById('btnExecute');
     const loading = document.getElementById('loading');
     const resultArea = document.getElementById('resultArea');
     const ansEl = document.getElementById('canvasAnswer');
     const expEl = document.getElementById('canvasExplanation');
+    
+    if (pollInterval) clearInterval(pollInterval);
     
     btn.disabled = true;
     loading.style.display = 'block';
@@ -62,10 +126,10 @@ async function analyzeQuestion() {
     }
 }
 
-// Ejecutar automáticamente al abrir el popup
+// En lugar de ejecutar de cero, revisamos si ya hay respuesta cacheadas
 document.addEventListener('DOMContentLoaded', () => {
-    analyzeQuestion();
+    checkCacheAndRender();
 });
 
-// Permitir re-ejecutar si el usuario hace scroll a otra pregunta sin cerrar el popup
+// Permitir forzar el analisis (botón "Volver a Analizar")
 document.getElementById('btnExecute').addEventListener('click', analyzeQuestion);

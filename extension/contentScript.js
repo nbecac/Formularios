@@ -233,3 +233,25 @@ function extractMultipleChoiceQuestion() {
         selection_mode: selectionMode
     };
 }
+
+// Lógica de pre-fetch (observador de scroll)
+let prefetchTimeout = null;
+let lastPrefetchedQuestion = null;
+
+function handleScrollDebounced() {
+    clearTimeout(prefetchTimeout);
+    prefetchTimeout = setTimeout(() => {
+        const qData = extractMultipleChoiceQuestion();
+        if (qData && qData.question && qData.question !== lastPrefetchedQuestion) {
+            lastPrefetchedQuestion = qData.question;
+            chrome.runtime.sendMessage({
+                action: "prefetch_question",
+                data: qData
+            });
+        }
+    }, 800); // Esperar 800ms tras dejar de scrollear
+}
+
+// Iniciar observador de scroll y llamar una vez al inicio
+window.addEventListener('scroll', handleScrollDebounced, { passive: true });
+setTimeout(handleScrollDebounced, 1000); // Disparar una vez que cargue la página
