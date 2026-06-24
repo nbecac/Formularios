@@ -60,3 +60,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
     delete questionCache[tabId];
 });
+
+// Auto-inyectar el content script cuando la extensión se recarga o instala,
+// para evitar que queden pestañas huérfanas y obliguen al usuario a usar F5.
+chrome.runtime.onInstalled.addListener(async () => {
+    const manifest = chrome.runtime.getManifest();
+    const contentScripts = manifest.content_scripts;
+    
+    if (contentScripts && contentScripts.length > 0) {
+        for (const cs of contentScripts) {
+            try {
+                const tabs = await chrome.tabs.query({url: cs.matches});
+                for (const tab of tabs) {
+                    try {
+                        await chrome.scripting.executeScript({
+                            target: {tabId: tab.id},
+                            files: cs.js
+                        });
+                        console.log("Auto-injected into tab", tab.id);
+                    } catch (err) {
+                        console.error("Failed auto-injecting into tab", tab.id, err);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed querying tabs", err);
+            }
+        }
+    }
+});

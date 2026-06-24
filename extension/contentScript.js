@@ -235,8 +235,9 @@ function extractMultipleChoiceQuestion() {
 }
 
 // Lógica de pre-fetch (observador de scroll)
-let prefetchTimeout = null;
-let lastPrefetchedQuestion = null;
+// Usamos var en vez de let para que no tire error si el script se re-inyecta
+var prefetchTimeout = null;
+var lastPrefetchedQuestion = null;
 
 function handleScrollDebounced() {
     clearTimeout(prefetchTimeout);
@@ -252,6 +253,7 @@ function handleScrollDebounced() {
     }, 800); // Esperar 800ms tras dejar de scrollear
 }
 
-// Iniciar observador de scroll y llamar una vez al inicio
+// Remover listeners anteriores si es una re-inyección
+window.removeEventListener('scroll', handleScrollDebounced);
 window.addEventListener('scroll', handleScrollDebounced, { passive: true });
 setTimeout(handleScrollDebounced, 1000); // Disparar una vez que cargue la página
